@@ -1,0 +1,24 @@
+[package]
+name = "fitstable"
+version = "0.1.0"
+authors = ["F.-X. Pineau <francois-xavier.pineau@astro.unistra.fr>"]
+edition = "2024"
+license = "Apache-2.0 OR MIT"
+readme = "README.md"
+homepage = "https://github.com/cds-astro/cds-fitstable-rust/"
+repository = "https://github.com/cds-astro/cds-fitstable-rust/"
+
+[workspace]
+members = [
+    "crates/cli"
+]
+
+[workspace.dependencies]
+log = "0.4"
+
+[dependencies]
+log = { workspace = true }
+thiserror = "2.0"
+
+[features]
+# no features so far

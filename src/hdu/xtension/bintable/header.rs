@@ -1,0 +1,643 @@
+use log::warn;
+
+use crate::common::DynValueKwr;
+use crate::common::read::is_value_indicator;
+use crate::error::new_custom;
+use crate::{
+  common::{
+    ValueKwr,
+    keywords::{
+      bitpix::BitPix,
+      naxis::{NAxis, NAxis1, NAxis2},
+      pgcount::{GCount, PCount},
+      tables::{
+        bintable::{
+          tdim::TDim,
+          tdisp::TDispn,
+          tform::{TFormValue, TFormn, VariableLenghtArrayDataType},
+          theap::THeap,
+        },
+        tdminmax::{TDMax, TDMin},
+        tfields::TFields,
+        tnull::TNull,
+        tscaltzero::{TScal, TZero, UIF64},
+        ttype::TType,
+        tunit::TUnit,
+      },
+      xtension::Xtension,
+    },
+    read::{FixedFormatRead, KwrFormatRead},
+  },
+  error::Error,
+  hdu::{
+    HDUType,
+    header::Header,
+    xtension::bintable::schema::{
+      ArrayParam, HeapArrayParam, HeapArraySchema, ScaleOffset32, ScaleOffset64, Schema,
+      Schema::NullableBooleanArray,
+    },
+  },
+};
+
+pub const XTENSION: Xtension = Xtension::BinTable;
+pub const BITPIX: BitPix = BitPix::U8;
+pub const NAXIS: NAxis = NAxis::new(2);
+pub const GCOUNT: GCount = GCount::new(1);
+
+#[derive(Default)]
+pub struct BinTableColumnHeader {
+  /// Column name
+  ttype: Option<TType>,
+  /// Data type (the only one to be mandatory)
+  tform: Option<TFormn>,
+  /// Display info
+  tdisp: Option<TDispn>,
+  /// Unit
+  tunit: Option<TUnit>,
+  /// Null value, for types `B`, `I`, `J`, `K`, `P`, `Q` only.
+  tnull: Option<TNull>,
+  /// To be used with in: `field_value = TZERO + TSCAL * stored_value`
+  tscal: Option<TScal>,
+  /// To be used with in: `field_value = TZERO + TSCAL * stored_value`
+  tzero: Option<TZero>,
+  /// Multi-dim columns info (array to be interpreted as a multi-dim array)
+  tdim: Option<TDim>,
+  /// Min column value
+  tdmin: Option<TDMin>,
+  /// Max column value
+  tdmax: Option<TDMax>,
+  // TO be implemented?
+  // TLMAX, TLMIN,
+}
+
+impl BinTableColumnHeader {
+  pub fn colname(&self) -> Option<&str> {
+    self.ttype.as_ref().map(|ttype| ttype.col_name())
+  }
+  pub fn unit(&self) -> Option<&str> {
+    self.tunit.as_ref().map(|tunit| tunit.col_unit())
+  }
+
+  // format (tdips)
+  // shape (tdim)
+
+  pub fn schema(&self) -> Option<Schema> {
+    let scale = self.tscal.as_ref().map(|s| s.scale()).unwrap_or(1.0);
+    let offset = self
+      .tzero
+      .as_ref()
+      .map(|z| z.zero())
+      .unwrap_or(UIF64::F64(0.0));
+    self.tform.as_ref().map(|tform| match tform.tform_type() {
+      // Logical (bool)
+      TFormValue::L(rc) => {
+        if scale != 1.0 || !offset.is_0() {
+          warn!("TSCAL/TZERO ignored: not supposed to be used with TFORM 'L'.")
+        }
+        match rc.repeat_count() {
+          0 => Schema::Empty,
+          1 => Schema::NullableBoolean,
+          len => Schema::NullableBooleanArray(ArrayParam::new(len as usize)),
+        }
+      }
+
+      // Bit encoded on bytes
+      TFormValue::X(rc) => {
+        if scale != 1.0 || !offset.is_0() {
+          warn!("TSCAL/TZERO ignored: not supposed to be used with TFORM 'X'.")
+        }
+        match rc.repeat_count() {
+          0 => Schema::Empty,
+          len => Schema::Bits {
+            n_bits: len as usize,
+          },
+        }
+      }
+
+      // Unsigned Byte (u8)
+      // -- normal case
+      TFormValue::B(rc) if scale == 1.0 || offset.is_0() => match rc.repeat_count() {
+        0 => Schema::Empty,
+        1 => Schema::UnsignedByte,
+        len => Schema::UnsignedByteArray(ArrayParam::new(len as usize)),
+      },
+      // -- signed case
+      TFormValue::B(rc) if scale == 1.0 && offset.is_i8_offset() => match rc.repeat_count() {
+        0 => Schema::Empty,
+        1 => Schema::Byte,
+        len => Schema::ByteArray(ArrayParam::new(len as usize)),
+      },
+      // -- float using scale/offset
+      TFormValue::B(rc) => {
+        let transform = ScaleOffset32::new(scale as f32, offset.as_f32());
+        match rc.repeat_count() {
+          0 => Schema::Empty,
+          1 => Schema::FloatFromByte(transform),
+          len => Schema::FloatArrayFromBytes(
+            ArrayParam::new(len as usize).with_scale_offset_32(transform),
+          ),
+        }
+      }
+
+      // Short integer (i16)
+      // -- normal case
+      TFormValue::I(rc) if scale == 1.0 || offset.is_0() => match rc.repeat_count() {
+        0 => Schema::Empty,
+        1 => Schema::Short,
+        len => Schema::ShortArray(ArrayParam::new(len as usize)),
+      },
+      // -- unsigned case
+      TFormValue::I(rc) if scale == 1.0 && offset.is_u16_offset() => match rc.repeat_count() {
+        0 => Schema::Empty,
+        1 => Schema::UnsignedShort,
+        len => Schema::UnsignedShortArray(ArrayParam::new(len as usize)),
+      },
+      // -- float using scale/offset
+      TFormValue::I(rc) => {
+        let transform = ScaleOffset32::new(scale as f32, offset.as_f32());
+        match rc.repeat_count() {
+          0 => Schema::Empty,
+          1 => Schema::FloatFromShort(transform),
+          len => Schema::FloatArrayFromShort(
+            ArrayParam::new(len as usize).with_scale_offset_32(transform),
+          ),
+        }
+      }
+      // Integer (i32)
+      // -- normal case
+      TFormValue::J(rc) if scale == 1.0 || offset.is_0() => match rc.repeat_count() {
+        0 => Schema::Empty,
+        1 => Schema::Int,
+        len => Schema::IntArray(ArrayParam::new(len as usize)),
+      },
+      // -- unsigned case
+      TFormValue::J(rc) if scale == 1.0 && offset.is_u32_offset() => match rc.repeat_count() {
+        0 => Schema::Empty,
+        1 => Schema::UnsignedInt,
+        len => Schema::UnsignedIntArray(ArrayParam::new(len as usize)),
+      },
+      // -- double using scale/offset
+      TFormValue::J(rc) => {
+        let transform = ScaleOffset64::new(scale, offset.as_f64());
+        match rc.repeat_count() {
+          0 => Schema::Empty,
+          1 => Schema::DoubleFromInt(transform),
+          len => Schema::DoubleArrayFromInt(
+            ArrayParam::new(len as usize).with_scale_offset_64(transform),
+          ),
+        }
+      }
+      // Long integer (i64) -> should be float80 i computations.
+      TFormValue::K(rc) if scale == 1.0 || offset.is_0() => match rc.repeat_count() {
+        0 => Schema::Empty,
+        1 => Schema::Long,
+        len => Schema::LongArray(ArrayParam::new(len as usize)),
+      },
+      // -- unsigned case
+      TFormValue::K(rc) if scale == 1.0 && offset.is_u64_offset() => match rc.repeat_count() {
+        0 => Schema::Empty,
+        1 => Schema::UnsignedLong,
+        len => Schema::UnsignedLongArray(ArrayParam::new(len as usize)),
+      },
+      // -- double using scale/offset
+      TFormValue::K(rc) => {
+        let transform = ScaleOffset64::new(scale, offset.as_f64());
+        match rc.repeat_count() {
+          0 => Schema::Empty,
+          1 => Schema::DoubleFromLong(transform), // Should be a float with 64 bits mantissa...
+          len => Schema::DoubleArrayFromLong(
+            ArrayParam::new(len as usize).with_scale_offset_64(transform),
+          ),
+        }
+      }
+      // Character ASCII (u8)
+      TFormValue::A(rc) => {
+        if scale != 1.0 || !matches!(offset, UIF64::F64(0.0)) {
+          warn!("TSCAL/TZERO ignored: not supposed to be used with TFORM 'A'.")
+        }
+        match rc.repeat_count() {
+          0 => Schema::Empty,
+          1 => Schema::AsciiChar,
+          len => Schema::AsciiString(ArrayParam::new(len as usize)),
+        }
+      }
+      // Float (f32)
+      TFormValue::E(rc) if scale == 1.0 || offset.is_0() => match rc.repeat_count() {
+        0 => Schema::Empty,
+        1 => Schema::Float,
+        len => Schema::FloatArray(ArrayParam::new(len as usize)),
+      },
+      TFormValue::E(rc) => {
+        let transform = ScaleOffset32::new(scale as f32, offset.as_f32());
+        match rc.repeat_count() {
+          0 => Schema::Empty,
+          1 => Schema::FloatFromFloat(transform),
+          len => Schema::FloatArrayFromFloat(
+            ArrayParam::new(len as usize).with_scale_offset_32(transform),
+          ),
+        }
+      }
+      // Double (f64)
+      TFormValue::D(rc) if scale == 1.0 || offset.is_0() => match rc.repeat_count() {
+        0 => Schema::Empty,
+        1 => Schema::Double,
+        len => Schema::DoubleArray(ArrayParam::new(len as usize)),
+      },
+      TFormValue::D(rc) => {
+        let transform = ScaleOffset64::new(scale, offset.as_f64());
+        match rc.repeat_count() {
+          0 => Schema::Empty,
+          1 => Schema::DoubleFromDouble(transform),
+          len => Schema::DoubleArrayFromDouble(
+            ArrayParam::new(len as usize).with_scale_offset_64(transform),
+          ),
+        }
+      }
+
+      // Complex f32 (f32, f32)
+      TFormValue::C(rc) if scale == 1.0 || offset.is_0() => match rc.repeat_count() {
+        0 => Schema::Empty,
+        1 => Schema::ComplexFloat,
+        len => Schema::ComplexFloatArray(ArrayParam::new(len as usize)),
+      },
+      TFormValue::C(_rc) => {
+        // scale + offset only on the real part? Why not scale on modulus and offset on angle?
+        todo!()
+      }
+      // Complex f64 (f64, f64)
+      TFormValue::M(rc) if scale == 1.0 || offset.is_0() => match rc.repeat_count() {
+        0 => Schema::Empty,
+        1 => Schema::ComplexDouble,
+        len => Schema::ComplexDoubleArray(ArrayParam::new(len as usize)),
+      },
+      TFormValue::M(rc) => {
+        // scale + offset only on the real part? Why not scale on modulus and offset on angle?
+        todo!()
+      }
+      // Array descriptor 32-bit (u32)
+      TFormValue::P(zo) => {
+        if zo.is_repeat_count_eq_1() {
+          let hap = HeapArrayParam::new(zo.max_len() as usize);
+          Schema::HeapArrayPtr32(heap_array_data_type(zo.data_type(), hap, scale, offset))
+        } else {
+          Schema::Empty
+        }
+      }
+      // Array descriptor 64-bit (u64)
+      TFormValue::Q(zo) => {
+        if zo.is_repeat_count_eq_1() {
+          let hap = HeapArrayParam::new(zo.max_len() as usize);
+          Schema::HeapArrayPtr64(heap_array_data_type(zo.data_type(), hap, scale, offset))
+        } else {
+          Schema::Empty
+        }
+      }
+    })
+  }
+}
+
+fn heap_array_data_type(
+  vdt: VariableLenghtArrayDataType,
+  hap: HeapArrayParam,
+  scale: f64,
+  offset: UIF64,
+) -> HeapArraySchema {
+  match vdt {
+    VariableLenghtArrayDataType::L => {
+      if scale != 1.0 || !matches!(offset, UIF64::F64(0.0)) {
+        warn!("TSCAL/TZERO ignored: not supposed to be used with TFORM '[PQ]L'.")
+      }
+      HeapArraySchema::HeapNullableBooleanArray(hap)
+    }
+    VariableLenghtArrayDataType::A => {
+      if scale != 1.0 || !matches!(offset, UIF64::F64(0.0)) {
+        warn!("TSCAL/TZERO ignored: not supposed to be used with TFORM '[PQ]A'.")
+      }
+      HeapArraySchema::HeapAsciiString(hap)
+    }
+    VariableLenghtArrayDataType::B if scale == 1.0 && offset.is_0() => {
+      HeapArraySchema::HeapUnsignedByteArray(hap)
+    }
+    VariableLenghtArrayDataType::B if scale == 1.0 && offset.is_i8_offset() => {
+      HeapArraySchema::HeapByteArray(hap)
+    }
+    VariableLenghtArrayDataType::B => HeapArraySchema::HeapFloatArrayFromByte(
+      hap.with_scale_offset_32(ScaleOffset32::new(scale as f32, offset.as_f32())),
+    ),
+    VariableLenghtArrayDataType::I if scale == 1.0 && offset.is_0() => {
+      HeapArraySchema::HeapShortArray(hap)
+    }
+    VariableLenghtArrayDataType::I if scale == 1.0 && offset.is_u16_offset() => {
+      HeapArraySchema::HeapUnsignedShortArray(hap)
+    }
+    VariableLenghtArrayDataType::I => HeapArraySchema::HeapFloatArrayFromShort(
+      hap.with_scale_offset_32(ScaleOffset32::new(scale as f32, offset.as_f32())),
+    ),
+    VariableLenghtArrayDataType::J if scale == 1.0 && offset.is_0() => {
+      HeapArraySchema::HeapIntArray(hap)
+    }
+    VariableLenghtArrayDataType::J if scale == 1.0 && offset.is_u32_offset() => {
+      HeapArraySchema::HeapUnsignedIntArray(hap)
+    }
+    VariableLenghtArrayDataType::J => HeapArraySchema::HeapDoubleArrayFromInt(
+      hap.with_scale_offset_64(ScaleOffset64::new(scale, offset.as_f64())),
+    ),
+    VariableLenghtArrayDataType::K if scale == 1.0 && offset.is_0() => {
+      HeapArraySchema::HeapLongArray(hap)
+    }
+    VariableLenghtArrayDataType::K if scale == 1.0 && offset.is_u64_offset() => {
+      HeapArraySchema::HeapUnsignedLongArray(hap)
+    }
+    VariableLenghtArrayDataType::K => HeapArraySchema::HeapDoubleArrayFromLong(
+      hap.with_scale_offset_64(ScaleOffset64::new(scale, offset.as_f64())),
+    ),
+    VariableLenghtArrayDataType::E if scale == 1.0 && offset.is_0() => {
+      HeapArraySchema::HeapFloatArray(hap)
+    }
+    VariableLenghtArrayDataType::E => HeapArraySchema::HeapFloatArrayFromFloat(
+      hap.with_scale_offset_32(ScaleOffset32::new(scale as f32, offset.as_f32())),
+    ),
+    VariableLenghtArrayDataType::D if scale == 1.0 && offset.is_0() => {
+      HeapArraySchema::HeapDoubleArray(hap)
+    }
+    VariableLenghtArrayDataType::D => HeapArraySchema::HeapDoubleArrayFromDouble(
+      hap.with_scale_offset_64(ScaleOffset64::new(scale, offset.as_f64())),
+    ),
+    VariableLenghtArrayDataType::C if scale == 1.0 && offset.is_0() => {
+      HeapArraySchema::HeapComplexFloatArray(hap)
+    }
+    VariableLenghtArrayDataType::C => {
+      // scale + offset only on the real part? Why not scale on modulus and offset on angle?
+      todo!()
+    }
+    VariableLenghtArrayDataType::M if scale == 1.0 && offset.is_0() => {
+      HeapArraySchema::HeapComplexDoubleArray(hap)
+    }
+    VariableLenghtArrayDataType::M => {
+      // scale + offset only on the real part? Why not scale on modulus and offset on angle?
+      todo!()
+    }
+  }
+}
+
+// Oher table keywords
+// Variable length info
+// theap: Option<THeap>,
+// And look at compression?
+
+pub struct BinTableHeader {
+  // xtension
+  // bitpix
+  // naxis
+  /// Row byte size
+  naxis1: NAxis1,
+  /// Number of rows in the table
+  naxis2: NAxis2,
+  /// Size of the heap (for variable width columns)
+  pcount: PCount,
+  // gcount
+  /// Number of columns in the table
+  tfield: TFields,
+}
+
+impl BinTableHeader {
+  /// # Params
+  /// * `naxis1`: byte size of a row
+  /// * `naxis2`: number of rows in the table
+  /// * `pcount`: size of the variable size data (heap), if any
+  /// * `tfield`: number of columns in the table
+  pub fn new(naxis1: u32, naxis2: u64, pcount: usize, tfield: u16) -> Self {
+    Self {
+      naxis1: NAxis1::new(naxis1),
+      naxis2: NAxis2::new(naxis2),
+      pcount: PCount::new(pcount),
+      tfield: TFields::new(tfield),
+    }
+  }
+
+  /// Number of leading mandatory keyword records (from `XTENSION`, inclusive, to `TFIELD`, inclusive).
+  pub fn n_kw_records(&self) -> usize {
+    8
+  }
+
+  pub fn n_cols(&self) -> usize {
+    self.tfield.get() as usize
+  }
+
+  pub fn n_rows(&self) -> usize {
+    self.naxis2.get() as usize
+  }
+
+  pub fn row_byte_size(&self) -> usize {
+    self.naxis1.get() as usize
+  }
+
+  pub fn heap_byte_size(&self) -> usize {
+    self.pcount.get()
+  }
+}
+
+impl Header for BinTableHeader {
+  fn from_starting_mandatory_kw_records<'a, I>(
+    hdu_type: HDUType,
+    kw_records_it: &mut I,
+  ) -> Result<Self, Error>
+  where
+    I: Iterator<Item = (usize, &'a [u8; 80])>,
+  {
+    // We assume XTENSION has already been parsed (needed to decide to enter here!).
+    assert_eq!(hdu_type, HDUType::Extension(Xtension::BinTable));
+    BITPIX.check_keyword_record_it(kw_records_it)?;
+    NAXIS.check_keyword_record_it(kw_records_it)?;
+    let naxis1 = NAxis1::from_keyword_record_it(kw_records_it)?;
+    let naxis2 = NAxis2::from_keyword_record_it(kw_records_it)?;
+    let pcount = PCount::from_keyword_record_it(kw_records_it)?;
+    GCOUNT.check_keyword_record_it(kw_records_it)?;
+    let tfield = TFields::from_keyword_record_it(kw_records_it)?;
+    Ok(Self {
+      naxis1,
+      naxis2,
+      pcount,
+      tfield,
+    })
+  }
+
+  fn data_byte_size(&self) -> u64 {
+    BITPIX.byte_size()
+      * (self.pcount.byte_size() as u64 + (self.naxis1.get() as u64) * self.naxis2.get())
+  }
+
+  fn write_starting_mandatory_kw_records<'a, I>(&self, dest: &mut I) -> Result<(), Error>
+  where
+    I: Iterator<Item = Result<&'a mut [u8; 80], Error>>,
+  {
+    XTENSION
+      .write_kw_record(dest)
+      .and_then(|()| BITPIX.write_kw_record(dest))
+      .and_then(|()| NAXIS.write_kw_record(dest))
+      .and_then(|()| self.naxis1.write_kw_record(dest))
+      .and_then(|()| self.naxis2.write_kw_record(dest))
+      .and_then(|()| self.pcount.write_kw_record(dest))
+      .and_then(|()| GCOUNT.write_kw_record(dest))
+      .and_then(|()| self.tfield.write_kw_record(dest))
+  }
+}
+
+/// A header storing information to access tables data: rows, columns, fields content, ...
+pub struct BinTableHeaderWithColInfo {
+  /// Minimal Required Header to be able to skip data
+  mrh: BinTableHeader,
+  cols: Vec<BinTableColumnHeader>,
+}
+impl BinTableHeaderWithColInfo {
+  fn check_n(&self, n: u16) -> Result<(), Error> {
+    if n as usize > self.cols.len() {
+      Err(new_custom(format!(
+        "Out of bound column number. Expected: max {}. Actual: {}.",
+        self.cols.len(),
+        n
+      )))
+    } else {
+      Ok(())
+    }
+  }
+}
+
+impl Header for BinTableHeaderWithColInfo {
+  fn from_starting_mandatory_kw_records<'a, I>(
+    hdu_type: HDUType,
+    kw_records_it: &mut I,
+  ) -> Result<Self, Error>
+  where
+    I: Iterator<Item = (usize, &'a [u8; 80])>,
+  {
+    BinTableHeader::from_starting_mandatory_kw_records(hdu_type, kw_records_it).map(|v| v.into())
+  }
+
+  fn data_byte_size(&self) -> u64 {
+    self.mrh.data_byte_size()
+  }
+
+  fn write_starting_mandatory_kw_records<'a, I>(&self, dest: &mut I) -> Result<(), Error>
+  where
+    I: Iterator<Item = Result<&'a mut [u8; 80], Error>>,
+  {
+    self.mrh.write_starting_mandatory_kw_records(dest)
+  }
+
+  fn consume_remaining_kw_records<'a, I>(&mut self, kw_records_it: &mut I) -> Result<(), Error>
+  where
+    I: Iterator<Item = (usize, &'a [u8; 80])>,
+  {
+    fn get_n(bytes: &[u8]) -> Option<u16> {
+      unsafe { str::from_utf8_unchecked(bytes) }
+        .trim()
+        .parse::<u16>()
+        .ok()
+    }
+
+    for (_, kwr) in kw_records_it {
+      let (kw, ind, kw_value_comment) = FixedFormatRead::split_kw_indicator_value(kwr);
+      // Skip keyword if it does not contain a value indicator
+      if !is_value_indicator(ind) {
+        continue;
+      }
+      // Analyse keyword
+      match kw {
+        [b'T', b'T', b'Y', b'P', b'E', nbr @ ..] => {
+          if let Some(n) = get_n(nbr) {
+            // 'kwo' stands for keyword object
+            self
+              .check_n(n)
+              .and_then(|()| TType::from_value_comment(n, kw_value_comment))
+              .map(|kwo| self.cols[n as usize].ttype.replace(kwo))?;
+          }
+        }
+        [b'T', b'F', b'O', b'R', b'M', nbr @ ..] => {
+          if let Some(n) = get_n(nbr) {
+            self
+              .check_n(n)
+              .and_then(|()| TFormn::from_value_comment(n, kw_value_comment))
+              .map(|kwo| self.cols[n as usize].tform.replace(kwo))?;
+          }
+        }
+        [b'T', b'D', b'I', b'S', b'P', nbr @ ..] => {
+          if let Some(n) = get_n(nbr) {
+            self
+              .check_n(n)
+              .and_then(|()| TDispn::from_value_comment(n, kw_value_comment))
+              .map(|kwo| self.cols[n as usize].tdisp.replace(kwo))?;
+          }
+        }
+        [b'T', b'U', b'N', b'I', b'T', nbr @ ..] => {
+          if let Some(n) = get_n(nbr) {
+            self
+              .check_n(n)
+              .and_then(|()| TUnit::from_value_comment(n, kw_value_comment))
+              .map(|kwo| self.cols[n as usize].tunit.replace(kwo))?;
+          }
+        }
+        [b'T', b'N', b'U', b'L', b'L', nbr @ ..] => {
+          if let Some(n) = get_n(nbr) {
+            self
+              .check_n(n)
+              .and_then(|()| TNull::from_value_comment(n, kw_value_comment))
+              .map(|kwo| self.cols[n as usize].tnull.replace(kwo))?;
+          }
+        }
+        [b'T', b'S', b'C', b'A', b'L', nbr @ ..] => {
+          if let Some(n) = get_n(nbr) {
+            self
+              .check_n(n)
+              .and_then(|()| TScal::from_value_comment(n, kw_value_comment))
+              .map(|kwo| self.cols[n as usize].tscal.replace(kwo))?;
+          }
+        }
+        [b'T', b'Z', b'E', b'R', b'O', nbr @ ..] => {
+          if let Some(n) = get_n(nbr) {
+            self
+              .check_n(n)
+              .and_then(|()| TZero::from_value_comment(n, kw_value_comment))
+              .map(|kwo| self.cols[n as usize].tzero.replace(kwo))?;
+          }
+        }
+        [b'T', b'D', b'I', b'M', nbr @ ..] => {
+          if let Some(n) = get_n(nbr) {
+            self
+              .check_n(n)
+              .and_then(|()| TDim::from_value_comment(n, kw_value_comment))
+              .map(|kwo| self.cols[n as usize].tdim.replace(kwo))?;
+          }
+        }
+        [b'T', b'D', b'M', b'I', b'N', nbr @ ..] => {
+          if let Some(n) = get_n(nbr) {
+            self
+              .check_n(n)
+              .and_then(|()| TDMin::from_value_comment(n, kw_value_comment))
+              .map(|kwo| self.cols[n as usize].tdmin.replace(kwo))?;
+          }
+        }
+        [b'T', b'D', b'M', b'A', b'X', nbr @ ..] => {
+          if let Some(n) = get_n(nbr) {
+            self
+              .check_n(n)
+              .and_then(|()| TDMax::from_value_comment(n, kw_value_comment))
+              .map(|kwo| self.cols[n as usize].tdmax.replace(kwo))?;
+          }
+        }
+        _ => {}
+      }
+    }
+    Ok(())
+  }
+}
+
+impl From<BinTableHeader> for BinTableHeaderWithColInfo {
+  fn from(mrh: BinTableHeader) -> Self {
+    let cols = (0..mrh.n_cols())
+      .into_iter()
+      .map(|_| BinTableColumnHeader::default())
+      .collect();
+    Self { mrh, cols }
+  }
+}
