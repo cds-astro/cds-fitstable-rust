@@ -18,10 +18,16 @@ test = false
 
 [dependencies]
 fitstable = { package = "fitstable", path = "../.." }
-memmap2 = "0.9"
-log = { workspace = true }
+# Handle command lines
 clap = { version = "4.5", features = ["derive"] }
+# Memmory map a file
+memmap2 = "0.9"
+# Logging
+log = { workspace = true }
 env_logger = "0.11"
+# Multithreading
+num_cpus = "1.17.0"
+crossbeam = "0.8"
 
 [target.'cfg(all(target_env = "musl", target_arch = "x86_64"))'.dependencies]
 mimalloc = "0.1.43"

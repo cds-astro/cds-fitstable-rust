@@ -83,16 +83,20 @@ impl<'a, B: HeaderBuilder> Iterator for HDUIterator<'a, B> {
     if self.ptr >= self.bytes.len() {
       None
     } else {
+      let is_primary = self.ptr == 0;
       Some(
-        RawHeader::<&'a [u8]>::from_slice(&self.bytes[self.ptr..]).and_then(
+        RawHeader::<&'a [u8]>::from_slice(is_primary, &self.bytes[self.ptr..]).and_then(
           |(raw_header, remaining_bytes)| {
             let starting_byte = self.ptr;
             self.ptr += raw_header.byte_size();
             assert_eq!(self.bytes.len() - self.ptr, remaining_bytes.len());
-            raw_header.build(starting_byte == 0).map(|parsed_header| {
+
+            raw_header.build(is_primary).map(|parsed_header| {
               let data_byte_size = parsed_header.data_byte_size() as usize;
-              self.ptr += data_byte_size as usize;
-              let data = &remaining_bytes[..data_byte_size as usize];
+              self.ptr += data_byte_size;
+              // get data part
+              let data = &remaining_bytes[..data_byte_size];
+              // ensure the pointer points to the first byte of a 2880 byte block
               if self.ptr % 2880 != 0 {
                 self.ptr = (1 + self.ptr / 2880) * 2880;
               }

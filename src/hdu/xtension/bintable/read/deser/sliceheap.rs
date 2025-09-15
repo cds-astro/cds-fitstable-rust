@@ -9,7 +9,7 @@ use crate::{
 use super::{
   super::{
     super::field::{ComplexF32, ComplexF64},
-    bytes::{to_i8, to_u16, to_u32, to_u64, Bytes},
+    bytes::{Bytes, to_i8, to_u16, to_u32, to_u64},
     visitor::Visitor,
   },
   DeserializeSeed, Deserializer,
@@ -20,6 +20,13 @@ pub struct DeserializerWithHeap<'a> {
   heap: Bytes<'a>,
 }
 impl<'a> DeserializerWithHeap<'a> {
+  pub fn new(row: &'a [u8], heap: &'a [u8]) -> Self {
+    Self {
+      row: Bytes::new(row),
+      heap: Bytes::new(heap),
+    }
+  }
+
   fn get_len_offset_ptr32(&self, from: usize) -> (usize, usize) {
     let len = self.row.read_i32(from) as usize;
     let heap_byte_offset = self.row.read_i32(from + size_of::<i32>()) as usize;
@@ -453,13 +460,13 @@ impl<'de> Deserializer<'de> for DeserializerWithHeap<'de> {
   where
     V: Visitor,
   {
-    visitor.visit_opt_i8_array(self.row.read_n_bytes(from, len).iter().map(|v| {
-      if *v != null {
-        Some(to_i8(*v))
-      } else {
-        None
-      }
-    }))
+    visitor.visit_opt_i8_array(
+      self.row.read_n_bytes(from, len).iter().map(
+        |v| {
+          if *v != null { Some(to_i8(*v)) } else { None }
+        },
+      ),
+    )
   }
 
   fn deserialize_opt_short_array<V>(
@@ -472,13 +479,12 @@ impl<'de> Deserializer<'de> for DeserializerWithHeap<'de> {
   where
     V: Visitor,
   {
-    visitor.visit_opt_i16_array(self.row.read_i16_array(from, len).map(|v| {
-      if v != null {
-        Some(v)
-      } else {
-        None
-      }
-    }))
+    visitor.visit_opt_i16_array(
+      self
+        .row
+        .read_i16_array(from, len)
+        .map(|v| if v != null { Some(v) } else { None }),
+    )
   }
 
   fn deserialize_opt_int_array<V>(
@@ -491,13 +497,12 @@ impl<'de> Deserializer<'de> for DeserializerWithHeap<'de> {
   where
     V: Visitor,
   {
-    visitor.visit_opt_i32_array(self.row.read_i32_array(from, len).map(|v| {
-      if v != null {
-        Some(v)
-      } else {
-        None
-      }
-    }))
+    visitor.visit_opt_i32_array(
+      self
+        .row
+        .read_i32_array(from, len)
+        .map(|v| if v != null { Some(v) } else { None }),
+    )
   }
 
   fn deserialize_opt_long_array<V>(
@@ -510,13 +515,12 @@ impl<'de> Deserializer<'de> for DeserializerWithHeap<'de> {
   where
     V: Visitor,
   {
-    visitor.visit_opt_i64_array(self.row.read_i64_array(from, len).map(|v| {
-      if v != null {
-        Some(v)
-      } else {
-        None
-      }
-    }))
+    visitor.visit_opt_i64_array(
+      self
+        .row
+        .read_i64_array(from, len)
+        .map(|v| if v != null { Some(v) } else { None }),
+    )
   }
 
   fn deserialize_unsigned_byte_array<V>(
@@ -577,13 +581,13 @@ impl<'de> Deserializer<'de> for DeserializerWithHeap<'de> {
   where
     V: Visitor,
   {
-    visitor.visit_opt_u8_array(self.row.read_n_bytes(from, len).iter().map(|v| {
-      if *v != null {
-        Some(*v)
-      } else {
-        None
-      }
-    }))
+    visitor.visit_opt_u8_array(
+      self
+        .row
+        .read_n_bytes(from, len)
+        .iter()
+        .map(|v| if *v != null { Some(*v) } else { None }),
+    )
   }
 
   fn deserialize_opt_unsigned_short_array<V>(
@@ -596,13 +600,12 @@ impl<'de> Deserializer<'de> for DeserializerWithHeap<'de> {
   where
     V: Visitor,
   {
-    visitor.visit_opt_u16_array(self.row.read_i16_array(from, len).map(|v| {
-      if v != null {
-        Some(to_u16(v))
-      } else {
-        None
-      }
-    }))
+    visitor.visit_opt_u16_array(
+      self
+        .row
+        .read_i16_array(from, len)
+        .map(|v| if v != null { Some(to_u16(v)) } else { None }),
+    )
   }
 
   fn deserialize_opt_unsigned_int_array<V>(
@@ -615,13 +618,12 @@ impl<'de> Deserializer<'de> for DeserializerWithHeap<'de> {
   where
     V: Visitor,
   {
-    visitor.visit_opt_u32_array(self.row.read_i32_array(from, len).map(|v| {
-      if v != null {
-        Some(to_u32(v))
-      } else {
-        None
-      }
-    }))
+    visitor.visit_opt_u32_array(
+      self
+        .row
+        .read_i32_array(from, len)
+        .map(|v| if v != null { Some(to_u32(v)) } else { None }),
+    )
   }
 
   fn deserialize_opt_unsigned_long_array<V>(
@@ -634,13 +636,12 @@ impl<'de> Deserializer<'de> for DeserializerWithHeap<'de> {
   where
     V: Visitor,
   {
-    visitor.visit_opt_u64_array(self.row.read_i64_array(from, len).map(|v| {
-      if v != null {
-        Some(to_u64(v))
-      } else {
-        None
-      }
-    }))
+    visitor.visit_opt_u64_array(
+      self
+        .row
+        .read_i64_array(from, len)
+        .map(|v| if v != null { Some(to_u64(v)) } else { None }),
+    )
   }
 
   fn deserialize_float_array<V>(
@@ -899,13 +900,13 @@ impl<'de> Deserializer<'de> for DeserializerWithHeap<'de> {
     V: Visitor,
   {
     let (len, from) = self.get_len_offset_ptr32(from);
-    visitor.visit_opt_i8_array(self.heap.read_n_bytes(from, len).iter().map(|v| {
-      if *v != null {
-        Some(to_i8(*v))
-      } else {
-        None
-      }
-    }))
+    visitor.visit_opt_i8_array(
+      self.heap.read_n_bytes(from, len).iter().map(
+        |v| {
+          if *v != null { Some(to_i8(*v)) } else { None }
+        },
+      ),
+    )
   }
 
   fn deserialize_opt_short_vararray_ptr32<V>(
@@ -918,13 +919,12 @@ impl<'de> Deserializer<'de> for DeserializerWithHeap<'de> {
     V: Visitor,
   {
     let (len, from) = self.get_len_offset_ptr32(from);
-    visitor.visit_opt_i16_array(self.heap.read_i16_array(from, len).map(|v| {
-      if v != null {
-        Some(v)
-      } else {
-        None
-      }
-    }))
+    visitor.visit_opt_i16_array(
+      self
+        .heap
+        .read_i16_array(from, len)
+        .map(|v| if v != null { Some(v) } else { None }),
+    )
   }
 
   fn deserialize_opt_int_vararray_ptr32<V>(
@@ -937,13 +937,12 @@ impl<'de> Deserializer<'de> for DeserializerWithHeap<'de> {
     V: Visitor,
   {
     let (len, from) = self.get_len_offset_ptr32(from);
-    visitor.visit_opt_i32_array(self.heap.read_i32_array(from, len).map(|v| {
-      if v != null {
-        Some(v)
-      } else {
-        None
-      }
-    }))
+    visitor.visit_opt_i32_array(
+      self
+        .heap
+        .read_i32_array(from, len)
+        .map(|v| if v != null { Some(v) } else { None }),
+    )
   }
 
   fn deserialize_opt_long_vararray_ptr32<V>(
@@ -956,13 +955,12 @@ impl<'de> Deserializer<'de> for DeserializerWithHeap<'de> {
     V: Visitor,
   {
     let (len, from) = self.get_len_offset_ptr32(from);
-    visitor.visit_opt_i64_array(self.heap.read_i64_array(from, len).map(|v| {
-      if v != null {
-        Some(v)
-      } else {
-        None
-      }
-    }))
+    visitor.visit_opt_i64_array(
+      self
+        .heap
+        .read_i64_array(from, len)
+        .map(|v| if v != null { Some(v) } else { None }),
+    )
   }
 
   fn deserialize_unsigned_byte_vararray_ptr32<V>(
@@ -1023,13 +1021,13 @@ impl<'de> Deserializer<'de> for DeserializerWithHeap<'de> {
     V: Visitor,
   {
     let (len, from) = self.get_len_offset_ptr32(from);
-    visitor.visit_opt_u8_array(self.heap.read_n_bytes(from, len).iter().map(|v| {
-      if *v != null {
-        Some(*v)
-      } else {
-        None
-      }
-    }))
+    visitor.visit_opt_u8_array(
+      self
+        .heap
+        .read_n_bytes(from, len)
+        .iter()
+        .map(|v| if *v != null { Some(*v) } else { None }),
+    )
   }
 
   fn deserialize_opt_unsigned_short_vararray_ptr32<V>(
@@ -1042,13 +1040,12 @@ impl<'de> Deserializer<'de> for DeserializerWithHeap<'de> {
     V: Visitor,
   {
     let (len, from) = self.get_len_offset_ptr32(from);
-    visitor.visit_opt_u16_array(self.heap.read_i16_array(from, len).map(|v| {
-      if v != null {
-        Some(to_u16(v))
-      } else {
-        None
-      }
-    }))
+    visitor.visit_opt_u16_array(
+      self
+        .heap
+        .read_i16_array(from, len)
+        .map(|v| if v != null { Some(to_u16(v)) } else { None }),
+    )
   }
 
   fn deserialize_opt_unsigned_int_vararray_ptr32<V>(
@@ -1061,13 +1058,12 @@ impl<'de> Deserializer<'de> for DeserializerWithHeap<'de> {
     V: Visitor,
   {
     let (len, from) = self.get_len_offset_ptr32(from);
-    visitor.visit_opt_u32_array(self.heap.read_i32_array(from, len).map(|v| {
-      if v != null {
-        Some(to_u32(v))
-      } else {
-        None
-      }
-    }))
+    visitor.visit_opt_u32_array(
+      self
+        .heap
+        .read_i32_array(from, len)
+        .map(|v| if v != null { Some(to_u32(v)) } else { None }),
+    )
   }
 
   fn deserialize_opt_unsigned_long_vararray_ptr32<V>(
@@ -1080,13 +1076,12 @@ impl<'de> Deserializer<'de> for DeserializerWithHeap<'de> {
     V: Visitor,
   {
     let (len, from) = self.get_len_offset_ptr32(from);
-    visitor.visit_opt_u64_array(self.heap.read_i64_array(from, len).map(|v| {
-      if v != null {
-        Some(to_u64(v))
-      } else {
-        None
-      }
-    }))
+    visitor.visit_opt_u64_array(
+      self
+        .heap
+        .read_i64_array(from, len)
+        .map(|v| if v != null { Some(to_u64(v)) } else { None }),
+    )
   }
 
   fn deserialize_float_vararray_ptr32<V>(
@@ -1345,13 +1340,13 @@ impl<'de> Deserializer<'de> for DeserializerWithHeap<'de> {
     V: Visitor,
   {
     let (len, from) = self.get_len_offset_ptr64(from);
-    visitor.visit_opt_i8_array(self.heap.read_n_bytes(from, len).iter().map(|v| {
-      if *v != null {
-        Some(to_i8(*v))
-      } else {
-        None
-      }
-    }))
+    visitor.visit_opt_i8_array(
+      self.heap.read_n_bytes(from, len).iter().map(
+        |v| {
+          if *v != null { Some(to_i8(*v)) } else { None }
+        },
+      ),
+    )
   }
 
   fn deserialize_opt_short_vararray_ptr64<V>(
@@ -1364,13 +1359,12 @@ impl<'de> Deserializer<'de> for DeserializerWithHeap<'de> {
     V: Visitor,
   {
     let (len, from) = self.get_len_offset_ptr64(from);
-    visitor.visit_opt_i16_array(self.heap.read_i16_array(from, len).map(|v| {
-      if v != null {
-        Some(v)
-      } else {
-        None
-      }
-    }))
+    visitor.visit_opt_i16_array(
+      self
+        .heap
+        .read_i16_array(from, len)
+        .map(|v| if v != null { Some(v) } else { None }),
+    )
   }
 
   fn deserialize_opt_int_vararray_ptr64<V>(
@@ -1383,13 +1377,12 @@ impl<'de> Deserializer<'de> for DeserializerWithHeap<'de> {
     V: Visitor,
   {
     let (len, from) = self.get_len_offset_ptr64(from);
-    visitor.visit_opt_i32_array(self.heap.read_i32_array(from, len).map(|v| {
-      if v != null {
-        Some(v)
-      } else {
-        None
-      }
-    }))
+    visitor.visit_opt_i32_array(
+      self
+        .heap
+        .read_i32_array(from, len)
+        .map(|v| if v != null { Some(v) } else { None }),
+    )
   }
 
   fn deserialize_opt_long_vararray_ptr64<V>(
@@ -1402,13 +1395,12 @@ impl<'de> Deserializer<'de> for DeserializerWithHeap<'de> {
     V: Visitor,
   {
     let (len, from) = self.get_len_offset_ptr64(from);
-    visitor.visit_opt_i64_array(self.heap.read_i64_array(from, len).map(|v| {
-      if v != null {
-        Some(v)
-      } else {
-        None
-      }
-    }))
+    visitor.visit_opt_i64_array(
+      self
+        .heap
+        .read_i64_array(from, len)
+        .map(|v| if v != null { Some(v) } else { None }),
+    )
   }
 
   fn deserialize_unsigned_byte_vararray_ptr64<V>(
@@ -1469,13 +1461,13 @@ impl<'de> Deserializer<'de> for DeserializerWithHeap<'de> {
     V: Visitor,
   {
     let (len, from) = self.get_len_offset_ptr64(from);
-    visitor.visit_opt_u8_array(self.heap.read_n_bytes(from, len).iter().map(|v| {
-      if *v != null {
-        Some(*v)
-      } else {
-        None
-      }
-    }))
+    visitor.visit_opt_u8_array(
+      self
+        .heap
+        .read_n_bytes(from, len)
+        .iter()
+        .map(|v| if *v != null { Some(*v) } else { None }),
+    )
   }
 
   fn deserialize_opt_unsigned_short_vararray_ptr64<V>(
@@ -1488,13 +1480,12 @@ impl<'de> Deserializer<'de> for DeserializerWithHeap<'de> {
     V: Visitor,
   {
     let (len, from) = self.get_len_offset_ptr64(from);
-    visitor.visit_opt_u16_array(self.heap.read_i16_array(from, len).map(|v| {
-      if v != null {
-        Some(to_u16(v))
-      } else {
-        None
-      }
-    }))
+    visitor.visit_opt_u16_array(
+      self
+        .heap
+        .read_i16_array(from, len)
+        .map(|v| if v != null { Some(to_u16(v)) } else { None }),
+    )
   }
 
   fn deserialize_opt_unsigned_int_vararray_ptr64<V>(
@@ -1507,13 +1498,12 @@ impl<'de> Deserializer<'de> for DeserializerWithHeap<'de> {
     V: Visitor,
   {
     let (len, from) = self.get_len_offset_ptr64(from);
-    visitor.visit_opt_u32_array(self.heap.read_i32_array(from, len).map(|v| {
-      if v != null {
-        Some(to_u32(v))
-      } else {
-        None
-      }
-    }))
+    visitor.visit_opt_u32_array(
+      self
+        .heap
+        .read_i32_array(from, len)
+        .map(|v| if v != null { Some(to_u32(v)) } else { None }),
+    )
   }
 
   fn deserialize_opt_unsigned_long_vararray_ptr64<V>(
@@ -1526,13 +1516,12 @@ impl<'de> Deserializer<'de> for DeserializerWithHeap<'de> {
     V: Visitor,
   {
     let (len, from) = self.get_len_offset_ptr64(from);
-    visitor.visit_opt_u64_array(self.heap.read_i64_array(from, len).map(|v| {
-      if v != null {
-        Some(to_u64(v))
-      } else {
-        None
-      }
-    }))
+    visitor.visit_opt_u64_array(
+      self
+        .heap
+        .read_i64_array(from, len)
+        .map(|v| if v != null { Some(to_u64(v)) } else { None }),
+    )
   }
 
   fn deserialize_float_vararray_ptr64<V>(

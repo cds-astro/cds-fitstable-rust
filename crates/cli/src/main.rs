@@ -2,7 +2,7 @@ use std::error::Error;
 
 use clap::Parser;
 
-use fitstable_cli::{head::Head, r#struct::Struct};
+use fitstable_cli::{csv::Csv, head::Head, r#struct::Struct};
 
 // Avoid musl's default allocator due to lackluster performance
 // https://nickb.dev/blog/default-musl-allocator-considered-harmful-to-performance
@@ -20,9 +20,9 @@ enum Args {
   /// Read and print the headers of all the HDU in a FITS file
   #[clap(name = "head")]
   Head(Head),
-  /*/// Print found table in CSV.
+  /// Print found table in CSV.
   #[clap(name = "csv")]
-  Csv(Csv),*/
+  Csv(Csv),
 }
 
 impl Args {
@@ -30,7 +30,7 @@ impl Args {
     match self {
       Self::Struct(args) => args.exec(),
       Self::Head(args) => args.exec(),
-      // Self::Csv(args) => args.exec(),
+      Self::Csv(args) => args.exec(),
     }
   }
 }
@@ -38,5 +38,11 @@ impl Args {
 fn main() -> Result<(), Box<dyn Error>> {
   env_logger::init();
   let args = Args::parse();
-  args.exec()
+  match args.exec() {
+    Ok(()) => Ok(()),
+    Err(e) => {
+      eprintln!("Error: {}", e);
+      Err(e)
+    }
+  }
 }

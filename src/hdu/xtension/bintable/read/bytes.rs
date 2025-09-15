@@ -25,10 +25,10 @@ pub fn to_opt_bool(v: u8) -> Option<bool> {
   match v {
     b'T' => Some(true),
     b'F' => Some(false),
-    b'0' => None,
+    0 => None,
     o => {
       error!(
-        "Wrong boolean value. Expected: T, F or 0. Found: {}. Value set to NULL.",
+        "Wrong boolean value. Expected: 'T', 'F' or 0. Found: {}. Value set to NULL.",
         o as char
       );
       None
@@ -97,7 +97,7 @@ impl<'a> Bytes<'a> {
       }
     };
     // Should we check that every single byte is an ASCII character?
-    unsafe { str::from_utf8_unchecked(bytes) }
+    unsafe { str::from_utf8_unchecked(bytes) }.trim_end()
   }
 
   pub fn read_n_bytes(&'a self, from: usize, n: usize) -> &'a [u8] {

@@ -1,4 +1,6 @@
-use std::{convert::TryInto, io::Read};
+use std::{convert::TryInto, io::Read, str::from_utf8_unchecked};
+
+use log::trace;
 
 use crate::{
   common::{
@@ -6,6 +8,7 @@ use crate::{
     keywords::{simple::Simple, xtension::Xtension},
     read::{FixedFormatRead, KwrFormatRead},
   },
+  error::new_unexpected_kw,
   error::{Error, new_io_err},
   hdu::{
     HDUType,
@@ -17,6 +20,7 @@ use crate::{
     },
   },
 };
+
 // Read RawHeader
 // Analyse RawHeader to get at least HDU and DATA size
 // * return HDU type
@@ -42,12 +46,16 @@ impl<T: AsRef<[u8]>> RawHeader<T> {
   /// * The total number of bytes read is exactly the value returned by the`byte_size` method.
   /// # TIP
   /// * This method is dedicated to streaming mode reading.
-  pub fn from_reader<R: Read>(reader: &mut R) -> Result<RawHeader<[u8; 2880]>, Error> {
+  pub fn from_reader<R: Read>(
+    is_primary: bool,
+    reader: &mut R,
+  ) -> Result<RawHeader<[u8; 2880]>, Error> {
     // Read the header by chunks of 2880
     let mut blocks = Vec::with_capacity(6);
+    let mut chunk2880 = [0_u8; 2880];
+    reader.read_exact(&mut chunk2880).map_err(new_io_err)?;
+    Self::check_first_keyword(is_primary, &chunk2880[..])?;
     loop {
-      let mut chunk2880 = [0_u8; 2880];
-      reader.read_exact(&mut chunk2880).map_err(new_io_err)?;
       let end_position = Self::end_position(&chunk2880);
       blocks.push(chunk2880);
       if let Some(mut end_position) = end_position {
@@ -56,6 +64,9 @@ impl<T: AsRef<[u8]>> RawHeader<T> {
           blocks,
           end_position,
         });
+      } else {
+        chunk2880 = [0_u8; 2880];
+        reader.read_exact(&mut chunk2880).map_err(new_io_err)?;
       }
     }
   }
@@ -63,10 +74,15 @@ impl<T: AsRef<[u8]>> RawHeader<T> {
   /// Returns the bytes that have not been consumed.
   /// # TIP
   /// * This method is to be used with MMap or when the full file is i memory.
-  pub fn from_slice(bytes: &[u8]) -> Result<(RawHeader<&[u8; 2880]>, &[u8]), Error> {
+  pub fn from_slice(
+    is_primary: bool,
+    mut bytes: &[u8],
+  ) -> Result<(RawHeader<&[u8; 2880]>, &[u8]), Error> {
+    Self::check_first_keyword(is_primary, bytes)?;
     // Read the header by chunks of 2880
     let mut blocks = Vec::with_capacity(6);
     loop {
+      trace!("REMAINDER SIZE: {}", bytes.len());
       let (chunk2880, remainder) = bytes.split_at(2880);
       let chunk2880: &[u8; 2880] = chunk2880.try_into().unwrap();
       let end_position = Self::end_position(&chunk2880);
@@ -80,15 +96,28 @@ impl<T: AsRef<[u8]>> RawHeader<T> {
           },
           remainder,
         ));
+      } else {
+        bytes = remainder;
       }
+    }
+  }
+
+  fn check_first_keyword(is_primary: bool, bytes: &[u8]) -> Result<(), Error> {
+    let kw: &[u8; 8] = &bytes[0..8].try_into().unwrap();
+    if is_primary && kw != Simple::KEYWORD {
+      Err(new_unexpected_kw(kw, Simple::KEYWORD))
+    } else if !is_primary && kw != Xtension::KEYWORD {
+      Err(new_unexpected_kw(kw, Xtension::KEYWORD))
+    } else {
+      Ok(())
     }
   }
 
   /// Returns the position of the "END" keyword, if any, in a chunk of 36 keyword records.
   /// The returned value is in `[0, 36[`.
   fn end_position(chunk2880: &[u8; 2880]) -> Option<usize> {
-    debug_assert_eq!(chunk2880.len(), 2880);
     for (i, chunk) in chunk2880.chunks(80).enumerate() {
+      trace!("Keyword recrod: {}", unsafe { from_utf8_unchecked(chunk) });
       if chunk.starts_with(b"END     ") {
         return Some(i);
       }

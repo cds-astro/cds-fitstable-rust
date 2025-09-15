@@ -1,11 +1,28 @@
 use std::{fmt::Display, io::Write};
 
 use crate::{
-  error::{new_io_err, new_unsupported_by_visitor, Error},
+  error::{Error, new_io_err, new_unsupported_by_visitor},
   hdu::xtension::bintable::field::{ComplexF32, ComplexF64},
 };
 
 use super::{FieldVisitorProvider, RowVisitor, Visitor};
+
+pub struct CSVRowVisitor;
+
+impl RowVisitor for CSVRowVisitor {
+  type Value = ();
+  type FieldValue = ();
+
+  fn visit_row<I>(self, fields_it: I) -> Result<Self::Value, Error>
+  where
+    I: Iterator<Item = Result<Self::FieldValue, Error>>,
+  {
+    for res in fields_it {
+      res?;
+    }
+    Ok(())
+  }
+}
 
 pub struct CSVVisitor<'a, W: Write> {
   writer: &'a mut W,
@@ -136,8 +153,8 @@ impl<'a, W: Write> Visitor for &mut CSVVisitor<'a, W> {
     self
       .write_sep()
       .and_then(|()| match v {
-        Some(true) => self.writer.write_all(b"T"),
-        Some(false) => self.writer.write_all(b"F"),
+        Some(true) => self.writer.write_all(b"true"),
+        Some(false) => self.writer.write_all(b"false"),
         None => Ok(()),
       })
       .map_err(new_io_err)
@@ -213,7 +230,7 @@ impl<'a, W: Write> Visitor for &mut CSVVisitor<'a, W> {
       .write_sep()
       .and_then(|()| {
         if !v.is_nan() {
-          write!(self.writer, "{}", v)
+          write!(self.writer, "{:?}", v)
         } else {
           Ok(())
         }
@@ -226,7 +243,7 @@ impl<'a, W: Write> Visitor for &mut CSVVisitor<'a, W> {
       .write_sep()
       .and_then(|()| {
         if !v.is_nan() {
-          write!(self.writer, "{}", v)
+          write!(self.writer, "{:?}", v)
         } else {
           Ok(())
         }

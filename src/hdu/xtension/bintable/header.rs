@@ -118,18 +118,49 @@ impl BinTableColumnHeader {
       // -- normal case
       TFormValue::B(rc) if scale == 1.0 || offset.is_0() => match rc.repeat_count() {
         0 => Schema::Empty,
-        1 => Schema::UnsignedByte,
-        len => Schema::UnsignedByteArray(ArrayParam::new(len as usize)),
+        1 => match &self.tnull {
+          None => Schema::UnsignedByte,
+          Some(null) => Schema::NullableUnsignedByte {
+            null: null.col_null_value() as u8,
+          },
+        },
+        len => {
+          let p = ArrayParam::new(len as usize);
+          match &self.tnull {
+            None => Schema::UnsignedByteArray(p),
+            Some(null) => Schema::NullableUnsignedByteArray {
+              null: null.col_null_value() as u8,
+              p,
+            },
+          }
+        }
       },
       // -- signed case
       TFormValue::B(rc) if scale == 1.0 && offset.is_i8_offset() => match rc.repeat_count() {
         0 => Schema::Empty,
-        1 => Schema::Byte,
-        len => Schema::ByteArray(ArrayParam::new(len as usize)),
+        1 => match &self.tnull {
+          None => Schema::Byte,
+          Some(null) => Schema::NullableByte {
+            null: null.col_null_value() as u8,
+          },
+        },
+        len => {
+          let p = ArrayParam::new(len as usize);
+          match &self.tnull {
+            None => Schema::ByteArray(p),
+            Some(null) => Schema::NullableByteArray {
+              null: null.col_null_value() as u8,
+              p,
+            },
+          }
+        }
       },
       // -- float using scale/offset
       TFormValue::B(rc) => {
         let transform = ScaleOffset32::new(scale as f32, offset.as_f32());
+        if self.tnull.is_some() {
+          todo!("TNULL not yet supported in FloatFromByte / FloatArrayFromBytes");
+        }
         match rc.repeat_count() {
           0 => Schema::Empty,
           1 => Schema::FloatFromByte(transform),
@@ -143,18 +174,49 @@ impl BinTableColumnHeader {
       // -- normal case
       TFormValue::I(rc) if scale == 1.0 || offset.is_0() => match rc.repeat_count() {
         0 => Schema::Empty,
-        1 => Schema::Short,
-        len => Schema::ShortArray(ArrayParam::new(len as usize)),
+        1 => match &self.tnull {
+          None => Schema::Short,
+          Some(null) => Schema::NullableShort {
+            null: null.col_null_value() as i16,
+          },
+        },
+        len => {
+          let p = ArrayParam::new(len as usize);
+          match &self.tnull {
+            None => Schema::ShortArray(p),
+            Some(null) => Schema::NullableShortArray {
+              null: null.col_null_value() as i16,
+              p,
+            },
+          }
+        }
       },
       // -- unsigned case
       TFormValue::I(rc) if scale == 1.0 && offset.is_u16_offset() => match rc.repeat_count() {
         0 => Schema::Empty,
-        1 => Schema::UnsignedShort,
-        len => Schema::UnsignedShortArray(ArrayParam::new(len as usize)),
+        1 => match &self.tnull {
+          None => Schema::UnsignedShort,
+          Some(null) => Schema::NullableUnsignedShort {
+            null: null.col_null_value() as i16,
+          },
+        },
+        len => {
+          let p = ArrayParam::new(len as usize);
+          match &self.tnull {
+            None => Schema::UnsignedShortArray(p),
+            Some(null) => Schema::NullableUnsignedShortArray {
+              null: null.col_null_value() as i16,
+              p,
+            },
+          }
+        }
       },
       // -- float using scale/offset
       TFormValue::I(rc) => {
         let transform = ScaleOffset32::new(scale as f32, offset.as_f32());
+        if self.tnull.is_some() {
+          todo!("TNULL not yet supported in FloatFromShort / FloatArrayFromShort");
+        }
         match rc.repeat_count() {
           0 => Schema::Empty,
           1 => Schema::FloatFromShort(transform),
@@ -167,14 +229,42 @@ impl BinTableColumnHeader {
       // -- normal case
       TFormValue::J(rc) if scale == 1.0 || offset.is_0() => match rc.repeat_count() {
         0 => Schema::Empty,
-        1 => Schema::Int,
-        len => Schema::IntArray(ArrayParam::new(len as usize)),
+        1 => match &self.tnull {
+          None => Schema::Int,
+          Some(null) => Schema::NullableInt {
+            null: null.col_null_value() as i32,
+          },
+        },
+        len => {
+          let p = ArrayParam::new(len as usize);
+          match &self.tnull {
+            None => Schema::IntArray(p),
+            Some(null) => Schema::NullableIntArray {
+              null: null.col_null_value() as i32,
+              p,
+            },
+          }
+        }
       },
       // -- unsigned case
       TFormValue::J(rc) if scale == 1.0 && offset.is_u32_offset() => match rc.repeat_count() {
         0 => Schema::Empty,
-        1 => Schema::UnsignedInt,
-        len => Schema::UnsignedIntArray(ArrayParam::new(len as usize)),
+        1 => match &self.tnull {
+          None => Schema::UnsignedInt,
+          Some(null) => Schema::NullableUnsignedInt {
+            null: null.col_null_value() as i32,
+          },
+        },
+        len => {
+          let p = ArrayParam::new(len as usize);
+          match &self.tnull {
+            None => Schema::UnsignedIntArray(p),
+            Some(null) => Schema::NullableUnsignedIntArray {
+              null: null.col_null_value() as i32,
+              p,
+            },
+          }
+        }
       },
       // -- double using scale/offset
       TFormValue::J(rc) => {
@@ -190,14 +280,42 @@ impl BinTableColumnHeader {
       // Long integer (i64) -> should be float80 i computations.
       TFormValue::K(rc) if scale == 1.0 || offset.is_0() => match rc.repeat_count() {
         0 => Schema::Empty,
-        1 => Schema::Long,
-        len => Schema::LongArray(ArrayParam::new(len as usize)),
+        1 => match &self.tnull {
+          None => Schema::Long,
+          Some(null) => Schema::NullableLong {
+            null: null.col_null_value(),
+          },
+        },
+        len => {
+          let p = ArrayParam::new(len as usize);
+          match &self.tnull {
+            None => Schema::LongArray(p),
+            Some(null) => Schema::NullableLongArray {
+              null: null.col_null_value(),
+              p,
+            },
+          }
+        }
       },
       // -- unsigned case
       TFormValue::K(rc) if scale == 1.0 && offset.is_u64_offset() => match rc.repeat_count() {
         0 => Schema::Empty,
-        1 => Schema::UnsignedLong,
-        len => Schema::UnsignedLongArray(ArrayParam::new(len as usize)),
+        1 => match &self.tnull {
+          None => Schema::UnsignedLong,
+          Some(null) => Schema::NullableUnsignedLong {
+            null: null.col_null_value(),
+          },
+        },
+        len => {
+          let p = ArrayParam::new(len as usize);
+          match &self.tnull {
+            None => Schema::UnsignedLongArray(p),
+            Some(null) => Schema::NullableUnsignedLongArray {
+              null: null.col_null_value(),
+              p,
+            },
+          }
+        }
       },
       // -- double using scale/offset
       TFormValue::K(rc) => {
@@ -276,6 +394,9 @@ impl BinTableColumnHeader {
       }
       // Array descriptor 32-bit (u32)
       TFormValue::P(zo) => {
+        if self.tnull.is_some() {
+          todo!("TNULL not yet supported in Array descriptor 32-bit ");
+        }
         if zo.is_repeat_count_eq_1() {
           let hap = HeapArrayParam::new(zo.max_len() as usize);
           Schema::HeapArrayPtr32(heap_array_data_type(zo.data_type(), hap, scale, offset))
@@ -285,6 +406,9 @@ impl BinTableColumnHeader {
       }
       // Array descriptor 64-bit (u64)
       TFormValue::Q(zo) => {
+        if self.tnull.is_some() {
+          todo!("TNULL not yet supported in Array descriptor 64-bit ");
+        }
         if zo.is_repeat_count_eq_1() {
           let hap = HeapArrayParam::new(zo.max_len() as usize);
           Schema::HeapArrayPtr64(heap_array_data_type(zo.data_type(), hap, scale, offset))
@@ -380,10 +504,9 @@ fn heap_array_data_type(
   }
 }
 
-// Oher table keywords
-// Variable length info
-// theap: Option<THeap>,
-// And look at compression?
+// Oher table keywords:
+// * look at compression.
+// * ...
 
 pub struct BinTableHeader {
   // xtension
@@ -393,7 +516,7 @@ pub struct BinTableHeader {
   naxis1: NAxis1,
   /// Number of rows in the table
   naxis2: NAxis2,
-  /// Size of the heap (for variable width columns)
+  /// Size of the heap (for variable width columns), including the (optional) gap
   pcount: PCount,
   // gcount
   /// Number of columns in the table
@@ -432,6 +555,11 @@ impl BinTableHeader {
     self.naxis1.get() as usize
   }
 
+  pub fn main_table_byte_size(&self) -> usize {
+    self.n_rows() * self.row_byte_size()
+  }
+
+  /// Size of the heap, ncluding the size of the gap (if any).
   pub fn heap_byte_size(&self) -> usize {
     self.pcount.get()
   }
@@ -462,9 +590,14 @@ impl Header for BinTableHeader {
     })
   }
 
+  /// Size fo the data part, including the main table and the heap.
+  /// # Warning
+  /// The value is **not necessarily a multiple of 2880**!
   fn data_byte_size(&self) -> u64 {
-    BITPIX.byte_size()
-      * (self.pcount.byte_size() as u64 + (self.naxis1.get() as u64) * self.naxis2.get())
+    // The BITPIX byte size equals 1, so it is useless to multiply by BITPIX.byte_size() here
+    // BITPIX.byte_size() * (...)
+    // (self.naxis1.get() as u64) * self.naxis2.get() + self.pcount.byte_size() as u64
+    self.main_table_byte_size() as u64 + self.heap_byte_size() as u64
   }
 
   fn write_starting_mandatory_kw_records<'a, I>(&self, dest: &mut I) -> Result<(), Error>
@@ -487,6 +620,10 @@ impl Header for BinTableHeader {
 pub struct BinTableHeaderWithColInfo {
   /// Minimal Required Header to be able to skip data
   mrh: BinTableHeader,
+  /// Index of the first starting byte of the HEAP, from the starting data byte.
+  /// **Cannot** be lower than `naxis1 * naxis2`.
+  theap: Option<THeap>,
+  /// Columns metadata
   cols: Vec<BinTableColumnHeader>,
 }
 impl BinTableHeaderWithColInfo {
@@ -500,6 +637,32 @@ impl BinTableHeaderWithColInfo {
     } else {
       Ok(())
     }
+  }
+
+  pub fn table(&self) -> &BinTableHeader {
+    &self.mrh
+  }
+
+  /// Size of the gap between the end of the main table and the heap, in bytes.
+  pub fn gap_byte_size(&self) -> usize {
+    self
+      .theap
+      .as_ref()
+      .map(|theap| {
+        let byte_offset = theap.byte_offset();
+        let main_table_byte_size = self.mrh.main_table_byte_size();
+        if byte_offset < main_table_byte_size {
+          warn!("Heap offset (THEAP) value {} is larger than the main table size {}. THEAP value ignored!", byte_offset, main_table_byte_size);
+          0
+        } else {
+          byte_offset - main_table_byte_size
+        }
+      })
+      .unwrap_or(0)
+  }
+
+  pub fn cols(&self) -> &[BinTableColumnHeader] {
+    self.cols.as_slice()
   }
 }
 
@@ -544,13 +707,16 @@ impl Header for BinTableHeaderWithColInfo {
       }
       // Analyse keyword
       match kw {
+        [b'T', b'H', b'E', b'A', b'P', b' ', b' ', b' '] => {
+          THeap::from_value_comment(kw_value_comment).map(|kwo| self.theap.replace(kwo))?;
+        }
         [b'T', b'T', b'Y', b'P', b'E', nbr @ ..] => {
           if let Some(n) = get_n(nbr) {
             // 'kwo' stands for keyword object
             self
               .check_n(n)
               .and_then(|()| TType::from_value_comment(n, kw_value_comment))
-              .map(|kwo| self.cols[n as usize].ttype.replace(kwo))?;
+              .map(|kwo| self.cols[(n - 1) as usize].ttype.replace(kwo))?;
           }
         }
         [b'T', b'F', b'O', b'R', b'M', nbr @ ..] => {
@@ -558,7 +724,7 @@ impl Header for BinTableHeaderWithColInfo {
             self
               .check_n(n)
               .and_then(|()| TFormn::from_value_comment(n, kw_value_comment))
-              .map(|kwo| self.cols[n as usize].tform.replace(kwo))?;
+              .map(|kwo| self.cols[(n - 1) as usize].tform.replace(kwo))?;
           }
         }
         [b'T', b'D', b'I', b'S', b'P', nbr @ ..] => {
@@ -566,7 +732,7 @@ impl Header for BinTableHeaderWithColInfo {
             self
               .check_n(n)
               .and_then(|()| TDispn::from_value_comment(n, kw_value_comment))
-              .map(|kwo| self.cols[n as usize].tdisp.replace(kwo))?;
+              .map(|kwo| self.cols[(n - 1) as usize].tdisp.replace(kwo))?;
           }
         }
         [b'T', b'U', b'N', b'I', b'T', nbr @ ..] => {
@@ -574,7 +740,7 @@ impl Header for BinTableHeaderWithColInfo {
             self
               .check_n(n)
               .and_then(|()| TUnit::from_value_comment(n, kw_value_comment))
-              .map(|kwo| self.cols[n as usize].tunit.replace(kwo))?;
+              .map(|kwo| self.cols[(n - 1) as usize].tunit.replace(kwo))?;
           }
         }
         [b'T', b'N', b'U', b'L', b'L', nbr @ ..] => {
@@ -582,7 +748,7 @@ impl Header for BinTableHeaderWithColInfo {
             self
               .check_n(n)
               .and_then(|()| TNull::from_value_comment(n, kw_value_comment))
-              .map(|kwo| self.cols[n as usize].tnull.replace(kwo))?;
+              .map(|kwo| self.cols[(n - 1) as usize].tnull.replace(kwo))?;
           }
         }
         [b'T', b'S', b'C', b'A', b'L', nbr @ ..] => {
@@ -590,7 +756,7 @@ impl Header for BinTableHeaderWithColInfo {
             self
               .check_n(n)
               .and_then(|()| TScal::from_value_comment(n, kw_value_comment))
-              .map(|kwo| self.cols[n as usize].tscal.replace(kwo))?;
+              .map(|kwo| self.cols[(n - 1) as usize].tscal.replace(kwo))?;
           }
         }
         [b'T', b'Z', b'E', b'R', b'O', nbr @ ..] => {
@@ -598,7 +764,7 @@ impl Header for BinTableHeaderWithColInfo {
             self
               .check_n(n)
               .and_then(|()| TZero::from_value_comment(n, kw_value_comment))
-              .map(|kwo| self.cols[n as usize].tzero.replace(kwo))?;
+              .map(|kwo| self.cols[(n - 1) as usize].tzero.replace(kwo))?;
           }
         }
         [b'T', b'D', b'I', b'M', nbr @ ..] => {
@@ -606,7 +772,7 @@ impl Header for BinTableHeaderWithColInfo {
             self
               .check_n(n)
               .and_then(|()| TDim::from_value_comment(n, kw_value_comment))
-              .map(|kwo| self.cols[n as usize].tdim.replace(kwo))?;
+              .map(|kwo| self.cols[(n - 1) as usize].tdim.replace(kwo))?;
           }
         }
         [b'T', b'D', b'M', b'I', b'N', nbr @ ..] => {
@@ -614,7 +780,7 @@ impl Header for BinTableHeaderWithColInfo {
             self
               .check_n(n)
               .and_then(|()| TDMin::from_value_comment(n, kw_value_comment))
-              .map(|kwo| self.cols[n as usize].tdmin.replace(kwo))?;
+              .map(|kwo| self.cols[(n - 1) as usize].tdmin.replace(kwo))?;
           }
         }
         [b'T', b'D', b'M', b'A', b'X', nbr @ ..] => {
@@ -622,7 +788,7 @@ impl Header for BinTableHeaderWithColInfo {
             self
               .check_n(n)
               .and_then(|()| TDMax::from_value_comment(n, kw_value_comment))
-              .map(|kwo| self.cols[n as usize].tdmax.replace(kwo))?;
+              .map(|kwo| self.cols[(n - 1) as usize].tdmax.replace(kwo))?;
           }
         }
         _ => {}
@@ -638,6 +804,10 @@ impl From<BinTableHeader> for BinTableHeaderWithColInfo {
       .into_iter()
       .map(|_| BinTableColumnHeader::default())
       .collect();
-    Self { mrh, cols }
+    Self {
+      mrh,
+      theap: None,
+      cols,
+    }
   }
 }

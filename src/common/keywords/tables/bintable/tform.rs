@@ -5,11 +5,11 @@ use std::{
 
 use crate::{
   common::{
+    DynValueKwr, FreeFormat,
     read::KwrFormatRead,
     write::{FreeFormatWrite, KwrFormatWrite},
-    DynValueKwr, FreeFormat,
   },
-  error::{new_0_or_1_repeatcount, new_unexpected_value, new_unexpected_value_list, Error},
+  error::{Error, new_0_or_1_repeatcount, new_unexpected_value, new_unexpected_value_list},
 };
 
 /// Repeat count and extra character.
@@ -254,7 +254,7 @@ impl FromStr for TFormValue {
 
   fn from_str(s: &str) -> Result<Self, Self::Err> {
     let bytes = s.as_bytes();
-    let il = bytes.partition_point(|s| !s.is_ascii_digit());
+    let il = bytes.partition_point(|s| s.is_ascii_digit());
     let r = if il == 0 {
       None
     } else {
@@ -284,7 +284,7 @@ impl FromStr for TFormValue {
           return Err(err);
         }
         let bytes = &bytes[il + 3..];
-        let il = bytes.partition_point(|s| !s.is_ascii_digit());
+        let il = bytes.partition_point(|s| s.is_ascii_digit());
         if il == 0 {
           return Err(err);
         }

@@ -1,6 +1,7 @@
 use std::{error::Error, fmt::Debug, fs::File, io::BufReader, path::PathBuf};
 
 use clap::Args;
+use log::info;
 use memmap2::{Mmap, MmapOptions};
 
 use fitstable::{
@@ -25,6 +26,7 @@ pub struct Struct {
 
 impl Struct {
   pub fn exec(self) -> Result<(), Box<dyn Error>> {
+    info!("Open file {:?}", &self.input);
     let file = File::open(&self.input)?;
     let mmap = unsafe { MmapOptions::new().map(&file)? };
     let bytes = mmap.as_ref();

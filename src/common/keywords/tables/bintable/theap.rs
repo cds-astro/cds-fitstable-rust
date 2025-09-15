@@ -1,15 +1,14 @@
 //! Defines the `THEAP` keyword for BINTABLE` extensions.
 //! The value is an offset, in bytes, between the start of the main table and te heap data area.
 //! No such keyword if PCOUNT = 0
+use crate::error::new_unexpected_value;
 use crate::{
   common::{
-    ValueKwr,
+    FixedFormat, KwrFormatRead, ValueKwr,
     write::{FixedFormatWrite, KwrFormatWrite},
-    FixedFormat, KwrFormatRead,
   },
-  error::{Error},
+  error::Error,
 };
-use crate::error::new_unexpected_value;
 
 /// The `THEAP` keyword.
 pub struct THeap(usize);
@@ -20,6 +19,7 @@ impl THeap {
   pub fn new(byte_offset: usize) -> Self {
     Self(byte_offset)
   }
+  /// Offset, in bytes, between the start of the main table and te heap data area.
   pub fn byte_offset(&self) -> usize {
     self.0
   }

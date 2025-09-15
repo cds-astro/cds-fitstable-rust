@@ -5,12 +5,12 @@ use std::{
 };
 
 use crate::error::{
-  new_empty_hierarch_kw_err, new_empty_val_bool_err, new_empty_val_float_err,
+  Error, new_empty_hierarch_kw_err, new_empty_val_bool_err, new_empty_val_float_err,
   new_empty_val_int_err, new_hierarch_kwval_sep_not_found_err, new_invalid_fixed_fmt_bool_val_err,
   new_invalid_fixed_fmt_float_val_err, new_invalid_fixed_fmt_int_val_err,
   new_invalid_free_fmt_bool_val_err, new_invalid_free_fmt_float_val_err,
   new_invalid_free_fmt_int_val_err, new_string_value_closing_not_found_err,
-  new_string_value_opening_not_found_err, Error,
+  new_string_value_opening_not_found_err,
 };
 
 use super::{KW_RANGE, VALUE_INDICATOR, VC_RANGE, VI_RANGE};
@@ -289,7 +289,7 @@ impl KwrFormatRead for FixedFormatRead {
               res += Cow::from(bytes2str(&tail[..=i])); // includes the first single quote
               sub = &tail[i + 1..]; // includes the second single quote
             } else {
-              res += Cow::from(bytes2str(&tail[..i])); // excludes the single quote
+              res += Cow::from(bytes2str(&tail[..i]).trim_end()); // excludes the single quote
               return Ok((res, &tail[i + 1..]));
             }
           }

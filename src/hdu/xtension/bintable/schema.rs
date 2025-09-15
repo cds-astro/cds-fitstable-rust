@@ -5,14 +5,23 @@ use super::read::{
   visitor::{FieldVisitorProvider, RowVisitor, Visitor},
 };
 
+#[derive(Debug, Clone)]
 pub struct RowSchema {
   fields_schemas: Vec<FieldSchema>,
 }
 impl RowSchema {
-  fn deserialize<'de, D, F, R>(
+  pub fn n_cols(&self) -> usize {
+    self.fields_schemas.len()
+  }
+
+  pub fn fields_schemas(&self) -> &[FieldSchema] {
+    self.fields_schemas.as_slice()
+  }
+
+  pub fn deserialize<'de, D, F, R>(
     &self,
     deserializer: &mut D,
-    mut field_visitor_provider: F,
+    field_visitor_provider: &mut F,
     row_visitor: R,
   ) -> Result<R::Value, Error>
   where
@@ -41,6 +50,7 @@ impl FromIterator<Schema> for RowSchema {
   }
 }
 
+#[derive(Debug, Clone)]
 pub struct FieldSchema {
   /// The starting byte of the field in the stored row bytes.
   starting_byte: usize,
@@ -380,6 +390,7 @@ impl<'de, 'a> DeserializeSeed<'de> for FieldSchema {
 /// Scale and offset to be used in the transformation:
 /// > output_value = scale * stored_value + offset
 /// for a 32-bit float
+#[derive(Debug, Clone)]
 pub struct ScaleOffset32 {
   scale: f32,
   offset: f32,
@@ -393,6 +404,7 @@ impl ScaleOffset32 {
 /// Scale and offset to be used in the transformation:
 /// > output_value = scale * stored_value + offset
 /// for a 64-bit float
+#[derive(Debug, Clone)]
 pub struct ScaleOffset64 {
   scale: f64,
   offset: f64,
@@ -404,6 +416,7 @@ impl ScaleOffset64 {
 }
 
 /// Regular array parameter (only the length so far).
+#[derive(Debug, Clone)]
 pub struct ArrayParam {
   len: usize,
 }
@@ -420,6 +433,7 @@ impl ArrayParam {
 }
 
 /// Array parameter with scaled and offset for 32-bit floats.
+#[derive(Debug, Clone)]
 pub struct ArrayParamWithScaleOffset32 {
   array_params: ArrayParam,
   scale_offset: ScaleOffset32,
@@ -434,6 +448,7 @@ impl ArrayParamWithScaleOffset32 {
 }
 
 /// Array parameter with scaled and offset for 64-bit floats.
+#[derive(Debug, Clone)]
 pub struct ArrayParamWithScaleOffset64 {
   array_params: ArrayParam,
   scale_offset: ScaleOffset64,
@@ -448,6 +463,7 @@ impl ArrayParamWithScaleOffset64 {
 }
 
 /// Variable length array parameter (only the length so far).
+#[derive(Debug, Clone)]
 pub struct HeapArrayParam {
   /// Upper bound on the stored array size.
   max_len: usize,
@@ -476,6 +492,7 @@ impl From<ArrayParam> for HeapArrayParam {
 }
 
 /// Variable length array parameter with scaled and offset for 32-bit floats.
+#[derive(Debug, Clone)]
 pub struct HeapArrayParamWithScaleOffset32 {
   heap_params: HeapArrayParam,
   scale_offset: ScaleOffset32,
@@ -490,6 +507,7 @@ impl HeapArrayParamWithScaleOffset32 {
 }
 
 /// Variable length array parameter with scaled and offset for 64-bit floats.
+#[derive(Debug, Clone)]
 pub struct HeapArrayParamWithScaleOffset64 {
   heap_params: HeapArrayParam,
   scale_offset: ScaleOffset64,
@@ -505,6 +523,7 @@ impl HeapArrayParamWithScaleOffset64 {
 
 /// Represent both the logical and the storage data type information
 /// (and how to convert the storage type to the logical type and conversely).
+#[derive(Debug, Clone)]
 pub enum Schema {
   // When repeat count = 0
   Empty,
@@ -704,6 +723,7 @@ impl Schema {
   }
 }
 
+#[derive(Debug, Clone)]
 pub enum HeapArraySchema {
   // Bool
   HeapNullableBooleanArray(HeapArrayParam),
