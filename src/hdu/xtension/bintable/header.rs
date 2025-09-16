@@ -17,6 +17,7 @@ use crate::{
           tform::{TFormValue, TFormn, VariableLenghtArrayDataType},
           theap::THeap,
         },
+        tcomm::TComm,
         tdminmax::{TDMax, TDMin},
         tfields::TFields,
         tnull::TNull,
@@ -54,6 +55,8 @@ pub struct BinTableColumnHeader {
   tdisp: Option<TDispn>,
   /// Unit
   tunit: Option<TUnit>,
+  /// Description
+  tcomm: Option<TComm>,
   /// Null value, for types `B`, `I`, `J`, `K`, `P`, `Q` only.
   tnull: Option<TNull>,
   /// To be used with in: `field_value = TZERO + TSCAL * stored_value`
@@ -76,6 +79,9 @@ impl BinTableColumnHeader {
   }
   pub fn unit(&self) -> Option<&str> {
     self.tunit.as_ref().map(|tunit| tunit.col_unit())
+  }
+  pub fn description(&self) -> Option<&str> {
+    self.tcomm.as_ref().map(|tcomm| tcomm.col_description())
   }
 
   // format (tdips)
@@ -741,6 +747,14 @@ impl Header for BinTableHeaderWithColInfo {
               .check_n(n)
               .and_then(|()| TUnit::from_value_comment(n, kw_value_comment))
               .map(|kwo| self.cols[(n - 1) as usize].tunit.replace(kwo))?;
+          }
+        }
+        [b'T', b'C', b'O', b'M', b'M', nbr @ ..] => {
+          if let Some(n) = get_n(nbr) {
+            self
+              .check_n(n)
+              .and_then(|()| TComm::from_value_comment(n, kw_value_comment))
+              .map(|kwo| self.cols[(n - 1) as usize].tcomm.replace(kwo))?;
           }
         }
         [b'T', b'N', b'U', b'L', b'L', nbr @ ..] => {
