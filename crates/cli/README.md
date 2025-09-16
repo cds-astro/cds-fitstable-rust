@@ -8,6 +8,16 @@ FITS files containing tables.
 This **C**ommand **L**ine **I**nterface (CLI) is made from the
 [CDS FITS Table Rust library](https://github.com/cds-astro/cds-fitstable-rust).
 
+## Motivations
+
+The motivations for the cli are:
+
+* to be able to test the [fitstable](https://github.com/cds-astro/cds-fitstable-rust?) library
+* to quickly get the structure of a FITS file
+* to have the equivalent of the command `fold -80 myfile.fits | more` without the binary data
+* to have a quick tool converting possible large FITS files (especially when dealing with the ingestion of large table,
+  such as ESO tables, in VizieR)
+
 ## Usage
 
 ```bash
@@ -79,10 +89,10 @@ sys	0m2,640s
 ```
 
 For the first command, we achieve conversion + writing speed of more than **700 MB/s**
-(probably limited by SSD disk speed) while the pure conversion (writing in `/dev/null`)
-reaches **1.2 GB/s**.
+(probably limited by SSDs writing speed) while the pure conversion (writing in `/dev/null`)
+reaches **1.2 GB/s**. Those measures were made with a hot disk cache.
 
-Conclusion: with enough CPUs, the writing speed is the limiting factor.
+Conclusion: with enough CPUs, IOs, in particular the writing speed, seem to be the main limiting factor.
 
 ## License
 
