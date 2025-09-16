@@ -21,6 +21,7 @@ Standalone
 See [fitstable-cli](crates/cli) for a standalone command line tool.
 Among the features, you get a multi-threaded FITS to CSV conversion.
 
+The standalone code also serve as an example of how to use the library.
 
 ToDo
 ----
@@ -28,12 +29,13 @@ ToDo
 * [ ] Implement a Reader for streamed data (heap ignored)
     + Remark: for stream reading, it would have been better to put the BINTABLE heap before the main table so that
       one could have kept it in memory (or write it in a temporary file) to access the data when reading pointers
-      pointing to it reading the main table.
+      pointing to it reading the main table. But
 * [ ] Implement writers
     + Remark: stream writing is not possible in FITS size the size of the result must be known in advance (the number of
       rows is writen in the header.
-* [ ] Add test with a great variety of FITS file
+* [ ] Add test with a large variety of FITS file
 * [ ] Implement ASCIITABLE
+* [ ] Implement display according to `TDISP`
 
 Disclaimer
 ----------

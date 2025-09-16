@@ -1,14 +1,13 @@
-//! Defines the `TTYPEn` (i.e. column names) keyword for `ASCIITABLE` and `BINTABLE` extensions.
+//! Defines the `TUNITn` (i.e. column unit) keyword for `ASCIITABLE` and `BINTABLE` extensions.
 use crate::{
   common::{
-    DynValueKwr,
+    DynValueKwr, FixedFormat, KwrFormatRead,
     write::{FixedFormatWrite, KwrFormatWrite},
-    FixedFormat, KwrFormatRead,
   },
-  error::{Error},
+  error::Error,
 };
 
-/// The `TTYPEn` keyword.
+/// The `TUNITn` keyword.
 pub struct TUnit {
   n: u16,
   value: String,
@@ -42,9 +41,8 @@ impl DynValueKwr for TUnit {
   }
 
   fn from_value_comment(n: u16, kwr_value_comment: &[u8; 70]) -> Result<Self, Error> {
-    FixedFormat::parse_string_value(kwr_value_comment).map(|(val, _comment)| {
-      Self::new(n, val.into_owned())
-    })
+    FixedFormat::parse_string_value(kwr_value_comment)
+      .map(|(val, _comment)| Self::new(n, val.into_owned()))
   }
 
   fn write_kw_record<'a, I>(&self, dest_kwr_it: &mut I) -> Result<(), Error>
