@@ -43,6 +43,9 @@ pub struct Csv {
   /// Path of the output file [default: write to stdout]
   #[clap(short = 'o', long = "out", value_name = "FILE")]
   output: Option<PathBuf>,
+  /// Do not print the header line (useful when concatenating a set a FITS file of same structure).
+  #[clap(short, long)]
+  no_header: bool,
   /// Exec concurrently using N threads [default: all possible threads]
   #[arg(long, value_name = "N")]
   parallel: Option<usize>,
@@ -73,7 +76,7 @@ impl Csv {
     {
       let hdu = hdu?;
       // Choose between stdout or file
-      let was_a_table = match &self.output {
+      let is_a_table = match &self.output {
         Some(path) => {
           // Add the hdu number to the extension from the second table
           let file = if first_table {
@@ -87,15 +90,29 @@ impl Csv {
             File::create(new_path)
           }?;
           let mut write = BufWriter::new(file);
-          convert_to_csv(hdu, &mut write, n_threads, self.chunk_size_mb, !self.ssd)
+          convert_to_csv(
+            hdu,
+            &mut write,
+            self.no_header,
+            n_threads,
+            self.chunk_size_mb,
+            !self.ssd,
+          )
         }
         None => {
           let stdout = stdout();
           let mut handle = stdout.lock();
-          convert_to_csv(hdu, &mut handle, n_threads, self.chunk_size_mb, !self.ssd)
+          convert_to_csv(
+            hdu,
+            &mut handle,
+            self.no_header,
+            n_threads,
+            self.chunk_size_mb,
+            !self.ssd,
+          )
         }
       }?;
-      if was_a_table {
+      if is_a_table {
         first_table = false;
       }
     }
@@ -107,6 +124,7 @@ impl Csv {
 fn convert_to_csv<W: Write>(
   hdu: HDU<Bintable>,
   write: &mut W,
+  no_header: bool,
   n_threads: usize,
   chunk_size_mb: f32,
   hdd: bool,
@@ -152,23 +170,25 @@ fn convert_to_csv<W: Write>(
       assert_eq!(n_rows * row_byte_size, table_byte_size);
 
       // Print header
-      let mut first = true;
-      for (i, field) in bintable_header_full.cols().iter().enumerate() {
-        if first {
-          first = false;
-        } else {
-          write!(write, ",")?;
+      if !no_header {
+        let mut first = true;
+        for (i, field) in bintable_header_full.cols().iter().enumerate() {
+          if first {
+            first = false;
+          } else {
+            write!(write, ",")?;
+          }
+          match field.colname() {
+            Some(name) => write!(write, "{}", name),
+            None => write!(write, "col_{}", i),
+          }?;
         }
-        match field.colname() {
-          Some(name) => write!(write, "{}", name),
-          None => write!(write, "col_{}", i),
-        }?;
       }
 
       // Print data
       if n_threads == 1 {
         info!("Exec with a single thread");
-        // Single threaded code
+
         let mut visitor = CSVVisitor::new(write);
         for raw_row in main.chunks(row_byte_size) {
           let mut de = DeserializerWithHeap::new(raw_row, heap);
@@ -181,12 +201,16 @@ fn convert_to_csv<W: Write>(
 
         // Convert chunk size in MB in a number of rows.
         let chunk_size = 1 + ((chunk_size_mb * 1048576.0_f32) as usize / row_byte_size);
+        info!("Number of rows per chunk: {}", chunk_size);
 
         // Multithreaded code
         // Here, we create one (sender, receiver) pairs per thread and iterate on the
         // ordered sender/receiver to preserve the original row order.
         // One thread, the producer (sender1), read the data and send it to multithreaded processors.
         // One thread, the consumer (receivers2), retrieve the data from producers and write them in the output.
+        //
+        // The difference (an extra copy) with and without the 'hdd' option seems very small.
+        // we let the option for extra tests, but we could remove it for simplicity.
         if hdd {
           // HDD mode: make a copy to be sure to read in sequencial mode.
           // The only difference with the SSD mode is the '.map(Vec::from)' in the chunk reader.

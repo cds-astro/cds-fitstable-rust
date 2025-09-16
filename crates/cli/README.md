@@ -18,6 +18,32 @@ The motivations for the cli are:
 * to have a quick tool converting possible large FITS files (especially when dealing with the ingestion of large table,
   such as ESO tables, in VizieR)
 
+## Install
+
+### From source code
+
+1 - Install or update Rust, see [this page](https://www.rust-lang.org/tools/install). For macOS or Linux:
+
+```bash
+# Install Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+# Update it if already installed
+rustup update
+```
+
+2 - clone the git repository containing the source code:
+
+```bash
+git clone https://github.com/cds-astro/cds-fitstable-rust.git
+```
+
+3 - compile and create the executable:
+
+```bash
+cd cds-fitstable-rust
+cargo install --path crates/cli
+```
+
 ## Usage
 
 ```bash
@@ -84,8 +110,6 @@ sys	0m3,483s
 real	0m1,984s
 user	0m38,573s
 sys	0m2,640s
-
-
 ```
 
 For the first command, we achieve conversion + writing speed of more than **700 MB/s**
@@ -93,6 +117,10 @@ For the first command, we achieve conversion + writing speed of more than **700 
 reaches **1.2 GB/s**. Those measures were made with a hot disk cache.
 
 Conclusion: with enough CPUs, IOs, in particular the writing speed, seem to be the main limiting factor.
+
+## ToDo
+
+* [ ] add HEALPix sort, index and query commands
 
 ## License
 
@@ -110,5 +138,3 @@ at your option.
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in this project by you, as defined in the Apache-2.0 license,
 shall be dual licensed as above, without any additional terms or conditions.
-
-
