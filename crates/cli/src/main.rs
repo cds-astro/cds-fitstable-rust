@@ -2,7 +2,7 @@ use std::error::Error;
 
 use clap::Parser;
 
-use fitstable_cli::{csv::Csv, head::Head, r#struct::Struct};
+use fitstable_cli::{csv::Csv, head::Head, info::Info, r#struct::Struct};
 
 // Avoid musl's default allocator due to lackluster performance
 // https://nickb.dev/blog/default-musl-allocator-considered-harmful-to-performance
@@ -20,6 +20,9 @@ enum Args {
   /// Read and print the headers of all the HDU in a FITS file
   #[clap(name = "head")]
   Head(Head),
+  /// Print tables information (such as column names, units, ...)
+  #[clap(name = "info")]
+  Info(Info),
   /// Print found table in CSV.
   #[clap(name = "csv")]
   Csv(Csv),
@@ -30,6 +33,7 @@ impl Args {
     match self {
       Self::Struct(args) => args.exec(),
       Self::Head(args) => args.exec(),
+      Self::Info(args) => args.exec(),
       Self::Csv(args) => args.exec(),
     }
   }

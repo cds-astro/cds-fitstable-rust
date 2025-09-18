@@ -29,9 +29,10 @@ impl Struct {
     info!("Open file {:?}", &self.input);
     let file = File::open(&self.input)?;
     let mmap = unsafe { MmapOptions::new().map(&file)? };
-    let bytes = mmap.as_ref();
-    let fits = FitsBytes::from_slice(bytes);
-    for (i, hdu) in fits.new_iterator::<Minimalist>().enumerate() {
+    for (i, hdu) in FitsBytes::from_slice(mmap.as_ref())
+      .new_iterator::<Minimalist>()
+      .enumerate()
+    {
       hdu
         .map_err(|e| e.into())
         .and_then(|hdu| print_hdu_struct(i, hdu))?;
