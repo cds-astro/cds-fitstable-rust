@@ -8,4 +8,5 @@ pub mod tfields;
 pub mod tnull;
 pub mod tscaltzero;
 pub mod ttype;
+pub mod tucd;
 pub mod tunit;

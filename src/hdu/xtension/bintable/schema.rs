@@ -1,4 +1,5 @@
 use crate::error::Error;
+use std::fmt::{Display, Formatter};
 
 use super::read::{
   deser::{DeserializeSeed, Deserializer},
@@ -431,6 +432,11 @@ impl ArrayParam {
     ArrayParamWithScaleOffset64::new(self, scale_offset)
   }
 }
+impl From<&HeapArrayParam> for ArrayParam {
+  fn from(p: &HeapArrayParam) -> Self {
+    Self::new(p.max_len)
+  }
+}
 
 /// Array parameter with scaled and offset for 32-bit floats.
 #[derive(Debug, Clone)]
@@ -446,6 +452,11 @@ impl ArrayParamWithScaleOffset32 {
     }
   }
 }
+impl From<&HeapArrayParamWithScaleOffset32> for ArrayParamWithScaleOffset32 {
+  fn from(p: &HeapArrayParamWithScaleOffset32) -> Self {
+    Self::new((&p.heap_params).into(), p.scale_offset.clone())
+  }
+}
 
 /// Array parameter with scaled and offset for 64-bit floats.
 #[derive(Debug, Clone)]
@@ -459,6 +470,11 @@ impl ArrayParamWithScaleOffset64 {
       array_params,
       scale_offset,
     }
+  }
+}
+impl From<&HeapArrayParamWithScaleOffset64> for ArrayParamWithScaleOffset64 {
+  fn from(p: &HeapArrayParamWithScaleOffset64) -> Self {
+    Self::new((&p.heap_params).into(), p.scale_offset.clone())
   }
 }
 
@@ -485,8 +501,8 @@ impl HeapArrayParam {
     HeapArrayParamWithScaleOffset64::new(self, scale_offset)
   }
 }
-impl From<ArrayParam> for HeapArrayParam {
-  fn from(array_param: ArrayParam) -> Self {
+impl From<&ArrayParam> for HeapArrayParam {
+  fn from(array_param: &ArrayParam) -> Self {
     Self::new(array_param.len)
   }
 }
@@ -723,6 +739,73 @@ impl Schema {
   }
 }
 
+impl Display for Schema {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::Empty => write!(f, "void"),
+      Self::NullableBoolean => write!(f, "bool?",),
+      Self::Bits { n_bits } => write!(f, "bits[{}]", n_bits),
+      Self::Byte => write!(f, "i8"),
+      Self::Short => write!(f, "i16"),
+      Self::Int => write!(f, "i32"),
+      Self::Long => write!(f, "i64"),
+      Self::NullableByte { null: _ } => write!(f, "i8?"),
+      Self::NullableShort { null: _ } => write!(f, "i16?"),
+      Self::NullableInt { null: _ } => write!(f, "i32?"),
+      Self::NullableLong { null: _ } => write!(f, "i64?"),
+      Self::UnsignedByte => write!(f, "u8"),
+      Self::UnsignedShort => write!(f, "u16"),
+      Self::UnsignedInt => write!(f, "u32"),
+      Self::UnsignedLong => write!(f, "u64"),
+      Self::NullableUnsignedByte { null: _ } => write!(f, "u8?"),
+      Self::NullableUnsignedShort { null: _ } => write!(f, "u16?"),
+      Self::NullableUnsignedInt { null: _ } => write!(f, "u32?"),
+      Self::NullableUnsignedLong { null: _ } => write!(f, "u64?"),
+      Self::Float => write!(f, "f32"),
+      Self::FloatFromFloat(_) => write!(f, "f32(f32)"),
+      Self::FloatFromByte(_) => write!(f, "f32(i8)"),
+      Self::FloatFromShort(_) => write!(f, "f32(i16)"),
+      Self::Double => write!(f, "f64"),
+      Self::DoubleFromDouble(_) => write!(f, "f64(f64)"),
+      Self::DoubleFromInt(_) => write!(f, "f64(i32)"),
+      Self::DoubleFromLong(_) => write!(f, "f64(i64)"),
+      Self::ComplexFloat => write!(f, "C32"),
+      Self::ComplexDouble => write!(f, "C64"),
+      Self::AsciiChar => write!(f, "c"),
+      Self::NullableBooleanArray(p) => write!(f, "bool?[{}]", p.len),
+      Self::ByteArray(p) => write!(f, "i8[{}]", p.len),
+      Self::ShortArray(p) => write!(f, "i16[{}]", p.len),
+      Self::IntArray(p) => write!(f, "i32[{}]", p.len),
+      Self::LongArray(p) => write!(f, "i64[{}]", p.len),
+      Self::NullableByteArray { null: _, p } => write!(f, "i8?[{}]", p.len),
+      Self::NullableShortArray { null: _, p } => write!(f, "i16?[{}]", p.len),
+      Self::NullableIntArray { null: _, p } => write!(f, "i32?[{}]", p.len),
+      Self::NullableLongArray { null: _, p } => write!(f, "i64?[{}]", p.len),
+      Self::UnsignedByteArray(p) => write!(f, "u8[{}]", p.len),
+      Self::UnsignedShortArray(p) => write!(f, "u16[{}]", p.len),
+      Self::UnsignedIntArray(p) => write!(f, "u32[{}]", p.len),
+      Self::UnsignedLongArray(p) => write!(f, "u64[{}]", p.len),
+      Self::NullableUnsignedByteArray { null: _, p } => write!(f, "u8?[{}]", p.len),
+      Self::NullableUnsignedShortArray { null: _, p } => write!(f, "u16?[{}]", p.len),
+      Self::NullableUnsignedIntArray { null: _, p } => write!(f, "u32?[{}]", p.len),
+      Self::NullableUnsignedLongArray { null: _, p } => write!(f, "u64?[{}]", p.len),
+      Self::FloatArray(p) => write!(f, "f32[{}]", p.len),
+      Self::FloatArrayFromFloat(p) => write!(f, "f32(f32)[{}]", p.array_params.len),
+      Self::FloatArrayFromBytes(p) => write!(f, "f32(i8)[{}]", p.array_params.len),
+      Self::FloatArrayFromShort(p) => write!(f, "f32(i16)[{}]", p.array_params.len),
+      Self::DoubleArray(p) => write!(f, "f64[{}]", p.len),
+      Self::DoubleArrayFromDouble(p) => write!(f, "f64(f64)[{}]", p.array_params.len),
+      Self::DoubleArrayFromInt(p) => write!(f, "f64(i32)[{}]", p.array_params.len),
+      Self::DoubleArrayFromLong(p) => write!(f, "f64(i64)[{}]", p.array_params.len),
+      Self::ComplexFloatArray(p) => write!(f, "C32[{}]", p.len),
+      Self::ComplexDoubleArray(p) => write!(f, "C64[{}]", p.len),
+      Self::AsciiString(p) => write!(f, "s[{}]", p.len),
+      Self::HeapArrayPtr32(hp) => write!(f, "h32({})", hp.to_string()),
+      Self::HeapArrayPtr64(hp) => write!(f, "h64({})", hp.to_string()),
+    }
+  }
+}
+
 #[derive(Debug, Clone)]
 pub enum HeapArraySchema {
   // Bool
@@ -761,4 +844,70 @@ pub enum HeapArraySchema {
   // TODO: HeapComplexDoubleArrayFromDouble(HeapArrayParamWithScaleOffset64),
   // String
   HeapAsciiString(HeapArrayParam),
+}
+impl Display for HeapArraySchema {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::HeapNullableBooleanArray(p) => Schema::NullableBooleanArray(p.into()).fmt(f),
+      Self::HeapByteArray(p) => Schema::ByteArray(p.into()).fmt(f),
+      Self::HeapShortArray(p) => Schema::ShortArray(p.into()).fmt(f),
+      Self::HeapIntArray(p) => Schema::IntArray(p.into()).fmt(f),
+      Self::HeapLongArray(p) => Schema::LongArray(p.into()).fmt(f),
+      Self::HeapNullableByteArray { null, hap } => Schema::NullableByteArray {
+        null: *null,
+        p: hap.into(),
+      }
+      .fmt(f),
+      Self::HeapNullableShortArray { null, hap } => Schema::NullableShortArray {
+        null: *null,
+        p: hap.into(),
+      }
+      .fmt(f),
+      Self::HeapNullableIntArray { null, hap } => Schema::NullableIntArray {
+        null: *null,
+        p: hap.into(),
+      }
+      .fmt(f),
+      Self::HeapNullableLongArray { null, hap } => Schema::NullableLongArray {
+        null: *null,
+        p: hap.into(),
+      }
+      .fmt(f),
+      Self::HeapUnsignedByteArray(p) => Schema::UnsignedByteArray(p.into()).fmt(f),
+      Self::HeapUnsignedShortArray(p) => Schema::UnsignedShortArray(p.into()).fmt(f),
+      Self::HeapUnsignedIntArray(p) => Schema::UnsignedIntArray(p.into()).fmt(f),
+      Self::HeapUnsignedLongArray(p) => Schema::UnsignedLongArray(p.into()).fmt(f),
+      Self::HeapNullableUnsignedByteArray { null, hap } => Schema::NullableUnsignedByteArray {
+        null: *null,
+        p: hap.into(),
+      }
+      .fmt(f),
+      Self::HeapNullableUnsignedShortArray { null, hap } => Schema::NullableUnsignedShortArray {
+        null: *null,
+        p: hap.into(),
+      }
+      .fmt(f),
+      Self::HeapNullableUnsignedIntArray { null, hap } => Schema::NullableUnsignedIntArray {
+        null: *null,
+        p: hap.into(),
+      }
+      .fmt(f),
+      Self::HeapNullableUnsignedLongArray { null, hap } => Schema::NullableUnsignedLongArray {
+        null: *null,
+        p: hap.into(),
+      }
+      .fmt(f),
+      Self::HeapFloatArray(p) => Schema::FloatArray(p.into()).fmt(f),
+      Self::HeapFloatArrayFromFloat(p) => Schema::FloatArrayFromFloat(p.into()).fmt(f),
+      Self::HeapFloatArrayFromByte(p) => Schema::FloatArrayFromBytes(p.into()).fmt(f),
+      Self::HeapFloatArrayFromShort(p) => Schema::FloatArrayFromShort(p.into()).fmt(f),
+      Self::HeapDoubleArray(p) => Schema::DoubleArray(p.into()).fmt(f),
+      Self::HeapDoubleArrayFromDouble(p) => Schema::DoubleArrayFromDouble(p.into()).fmt(f),
+      Self::HeapDoubleArrayFromInt(p) => Schema::DoubleArrayFromInt(p.into()).fmt(f),
+      Self::HeapDoubleArrayFromLong(p) => Schema::DoubleArrayFromLong(p.into()).fmt(f),
+      Self::HeapComplexFloatArray(p) => Schema::ComplexFloatArray(p.into()).fmt(f),
+      Self::HeapComplexDoubleArray(p) => Schema::ComplexDoubleArray(p.into()).fmt(f),
+      Self::HeapAsciiString(p) => Schema::AsciiString(p.into()).fmt(f),
+    }
+  }
 }

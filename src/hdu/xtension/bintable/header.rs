@@ -23,6 +23,7 @@ use crate::{
         tnull::TNull,
         tscaltzero::{TScal, TZero, UIF64},
         ttype::TType,
+        tucd::TUCD,
         tunit::TUnit,
       },
       xtension::Xtension,
@@ -55,6 +56,8 @@ pub struct BinTableColumnHeader {
   tdisp: Option<TDispn>,
   /// Unit
   tunit: Option<TUnit>,
+  /// UCD
+  tucd: Option<TUCD>,
   /// Description
   tcomm: Option<TComm>,
   /// Null value, for types `B`, `I`, `J`, `K`, `P`, `Q` only.
@@ -79,6 +82,9 @@ impl BinTableColumnHeader {
   }
   pub fn unit(&self) -> Option<&str> {
     self.tunit.as_ref().map(|tunit| tunit.col_unit())
+  }
+  pub fn ucd(&self) -> Option<&str> {
+    self.tucd.as_ref().map(|tucd| tucd.col_ucd())
   }
   pub fn description(&self) -> Option<&str> {
     self.tcomm.as_ref().map(|tcomm| tcomm.col_description())
@@ -739,6 +745,14 @@ impl Header for BinTableHeaderWithColInfo {
               .check_n(n)
               .and_then(|()| TDispn::from_value_comment(n, kw_value_comment))
               .map(|kwo| self.cols[(n - 1) as usize].tdisp.replace(kwo))?;
+          }
+        }
+        [b'T', b'U', b'C', b'D', nbr @ ..] => {
+          if let Some(n) = get_n(nbr) {
+            self
+              .check_n(n)
+              .and_then(|()| TUCD::from_value_comment(n, kw_value_comment))
+              .map(|kwo| self.cols[(n - 1) as usize].tucd.replace(kwo))?;
           }
         }
         [b'T', b'U', b'N', b'I', b'T', nbr @ ..] => {

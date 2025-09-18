@@ -1,4 +1,4 @@
-//! Defines the `TUNITn` (i.e. column unit) keyword for `ASCIITABLE` and `BINTABLE` extensions.
+//! Defines the `TUCDn` (i.e. column ucd) keyword for `ASCIITABLE` and `BINTABLE` extensions.
 use crate::{
   common::{
     DynValueKwr, FixedFormat, KwrFormatRead,
@@ -7,17 +7,17 @@ use crate::{
   error::Error,
 };
 
-/// The `TUNITn` keyword.
-pub struct TUnit {
+/// The `TUCDn` keyword.
+pub struct TUCD {
   n: u16,
-  // could be replaced by a Unit type
+  // could be replaced by a UCD type
   value: String,
 }
 
-impl TUnit {
+impl TUCD {
   /// # Params
-  /// * `n` the `TUNITn` number in `[1, TFIELD]`.
-  /// * `value` value associated to this `TUNITn` keyword, i.e. unit of the column number `n`
+  /// * `n` the `TUCDn` number in `[1, TFIELD]`.
+  /// * `value` value associated to this `TUCDn` keyword, i.e. the UCD of the column number `n`
   pub fn new(n: u16, value: String) -> Self {
     Self { n, value }
   }
@@ -25,13 +25,13 @@ impl TUnit {
   pub fn col_nbr(&self) -> u16 {
     self.n
   }
-  pub fn col_unit(&self) -> &str {
+  pub fn col_ucd(&self) -> &str {
     self.value.as_str()
   }
 }
 
-impl DynValueKwr for TUnit {
-  const KW_PREFIX: &'static [u8] = b"TUNIT";
+impl DynValueKwr for TUCD {
+  const KW_PREFIX: &'static [u8] = b"TUCD";
 
   fn n(&self) -> u16 {
     self.n
@@ -42,7 +42,7 @@ impl DynValueKwr for TUnit {
   }
 
   fn from_value_comment(n: u16, kwr_value_comment: &[u8; 70]) -> Result<Self, Error> {
-    // In a longer term we could add here code checking the validity of the unit
+    // In a longer term we could add here code checking the validity of the UCD
     FixedFormat::parse_string_value(kwr_value_comment)
       .map(|(val, _comment)| Self::new(n, val.into_owned()))
   }
@@ -51,7 +51,7 @@ impl DynValueKwr for TUnit {
   where
     I: Iterator<Item = Result<&'a mut [u8; 80], Error>>,
   {
-    let comment = format!("Unit of column #{}", self.n);
+    let comment = format!("UCD of column #{}", self.n);
     FixedFormatWrite::write_string_value_kw_record(
       dest_kwr_it,
       &Self::keyword(self.n),
