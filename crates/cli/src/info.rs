@@ -1,19 +1,28 @@
-use std::{error::Error, fmt::Debug, fs::File, io::BufReader, path::PathBuf};
+use std::{
+  error::Error,
+  fmt::Debug,
+  fs::File,
+  io::{BufReader, Write, stdout},
+  path::PathBuf,
+};
 
 use clap::Args;
 use log::info;
 use memmap2::{Mmap, MmapOptions};
 
-use fitstable::hdu::header::builder::r#impl::bintable::Bintable;
-use fitstable::hdu::xtension::bintable::header::BinTableHeaderWithColInfo;
 use fitstable::{
   common::{DynValueKwr, keywords::naxis::NAxisn},
   hdu::{
-    header::{HDUHeader, builder::r#impl::minimal::Minimalist},
-    primary::header::PrimaryHeader,
+    header::{
+      HDUHeader,
+      builder::r#impl::{bintable::Bintable, minimal::Minimalist},
+    },
+    primary::header::{PrimaryHeader, PrimaryHeaderWithVOTable},
     xtension::{
-      asciitable::header::AsciiTableHeader, bintable::header::BinTableHeader,
-      image::header::ImageHeader, unknown::UnknownXtensionHeader,
+      asciitable::header::AsciiTableHeader,
+      bintable::header::{BinTableHeader, BinTableHeaderWithColInfo},
+      image::header::ImageHeader,
+      unknown::UnknownXtensionHeader,
     },
   },
   read::slice::{FitsBytes, HDU},
@@ -24,6 +33,14 @@ pub struct Info {
   /// Path of the input file.
   #[clap(value_name = "FILE")]
   pub input: PathBuf,
+  /// Do not print the VOTable of a FITS Plus file
+  #[clap(short = 'n', long)]
+  pub no_vot: bool,
+  /// Only print the VOTable of a FITS Plus file
+  #[clap(short = 'o', long, conflicts_with = "no_vot")]
+  pub only_vot: bool,
+  // do not merge or not votable and fits info
+  // no_merge
 }
 
 impl Info {
@@ -33,28 +50,44 @@ impl Info {
     let mmap = unsafe { MmapOptions::new().map(&file)? };
     let bytes = mmap.as_ref();
     let fits = FitsBytes::from_slice(bytes);
-    for (i, hdu) in fits.new_iterator::<Bintable>().enumerate() {
-      hdu
-        .map_err(|e| e.into())
-        .and_then(|hdu| print_hdu_struct(i, hdu))?;
+    if self.only_vot {
+      if let Some(phd) = fits.new_iterator::<Bintable>().next() {
+        let phd = phd?;
+        if phd.is_fits_plus_primary_hdu() {
+          stdout().write_all(phd.data)?;
+        }
+      }
+    } else {
+      for (i, hdu) in fits.new_iterator::<Bintable>().enumerate() {
+        hdu
+          .map_err(|e| e.into())
+          .and_then(|hdu| self.print_hdu_struct(i, hdu))?;
+      }
     }
     Ok(())
   }
-}
 
-fn print_hdu_struct(i: usize, hdu: HDU<Bintable>) -> Result<(), Box<dyn Error>> {
-  print!("HDU[{}]: ", i);
-  match hdu.parsed_header {
-    HDUHeader::Primary(h) => print_primhdu_struct(h),
-    HDUHeader::Image(h) => print_imghdu_struct(h),
-    HDUHeader::AsciiTable(h) => print_ascisstablehdu_struct(h),
-    HDUHeader::BinTable(h) => print_bintablehdu_struct(h),
-    HDUHeader::Unknown(h) => print_unknownhdu_struct(h),
+  fn print_hdu_struct(&self, i: usize, hdu: HDU<Bintable>) -> Result<(), Box<dyn Error>> {
+    print!("HDU[{}]: ", i);
+    match hdu.parsed_header {
+      HDUHeader::Primary(h) => print_primhdu_struct(h, hdu.data, !self.no_vot),
+      HDUHeader::Image(h) => print_imghdu_struct(h),
+      HDUHeader::AsciiTable(h) => print_ascisstablehdu_struct(h),
+      HDUHeader::BinTable(h) => print_bintablehdu_struct(h),
+      HDUHeader::Unknown(h) => print_unknownhdu_struct(h),
+    }
   }
 }
 
-fn print_primhdu_struct(header: PrimaryHeader) -> Result<(), Box<dyn Error>> {
+fn print_primhdu_struct(
+  header: PrimaryHeaderWithVOTable,
+  data: &[u8],
+  print_vot: bool,
+) -> Result<(), Box<dyn Error>> {
   print_hdu_type("PRIMARY");
+  if print_vot && header.is_fits_plus() {
+    stdout().write_all(data)?;
+  }
   Ok(())
 }
 

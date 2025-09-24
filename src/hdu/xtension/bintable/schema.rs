@@ -1,10 +1,10 @@
-use crate::error::Error;
 use std::fmt::{Display, Formatter};
 
 use super::read::{
   deser::{DeserializeSeed, Deserializer},
   visitor::{FieldVisitorProvider, RowVisitor, Visitor},
 };
+use crate::error::Error;
 
 #[derive(Debug, Clone)]
 pub struct RowSchema {

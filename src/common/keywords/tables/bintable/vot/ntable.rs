@@ -1,4 +1,5 @@
-//! Defines the `TFIELD` (i.e. number of columns) keyword for `ASCIITABLE` and `BINTABLE` extensions.
+//! Defines the `NTABLE` keyword (in the Primary Header), i.e. the number of `BINTABLE` extensions
+//! following the Primary HDU in a `FITS Plus` file.
 use crate::{
   common::{
     FixedFormat, KwrFormatRead, ValueKwr,
@@ -7,11 +8,11 @@ use crate::{
   error::{Error, new_unexpected_value},
 };
 
-/// The `TFIELD` keyword.
+/// The `NTABLE` keyword.
 /// No need to use u32 or u64 since there is a maximum of 999 columns.
-pub struct TFields(u16);
+pub struct NTable(u16);
 
-impl TFields {
+impl NTable {
   pub fn new(n_cols: u16) -> Self {
     Self(n_cols)
   }
@@ -20,8 +21,8 @@ impl TFields {
   }
 }
 
-impl ValueKwr for TFields {
-  const KEYWORD: &'static [u8; 8] = b"TFIELDS ";
+impl ValueKwr for NTable {
+  const KEYWORD: &'static [u8; 8] = b"NTABLE  ";
 
   fn check_value(&self, kwr_value_comment: &[u8; 70]) -> Result<(), Error> {
     FixedFormat::parse_integer_value(kwr_value_comment).and_then(|(val, _comment)| {
@@ -51,7 +52,7 @@ impl ValueKwr for TFields {
       dest_kwr_it,
       Self::KEYWORD,
       self.0 as i64,
-      Some("Number of columns"),
+      Some("Number of following BINTABLE HDUs"),
     )
   }
 }

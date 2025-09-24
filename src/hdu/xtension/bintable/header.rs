@@ -1,20 +1,28 @@
+use std::cmp::{max, min};
+
 use log::warn;
 
-use crate::common::DynValueKwr;
-use crate::common::read::is_value_indicator;
-use crate::error::new_custom;
+#[cfg(feature = "vot")]
+use votable::{
+  datatype::Datatype,
+  field::{ArraySize, Precision},
+};
+
 use crate::{
   common::{
-    ValueKwr,
+    DynValueKwr, ValueKwr,
     keywords::{
       bitpix::BitPix,
       naxis::{NAxis, NAxis1, NAxis2},
       pgcount::{GCount, PCount},
       tables::{
         bintable::{
-          tdim::TDim,
-          tdisp::TDispn,
-          tform::{TFormValue, TFormn, VariableLenghtArrayDataType},
+          tdim::{TDim, TDimValue},
+          tdisp::{TDispValue, TDispn},
+          tform::{
+            RepeatCountAndExtraChar, TFormValue, TFormn, VariableLenghtArrayDataType,
+            VariableLenghtArrayInfo,
+          },
           theap::THeap,
         },
         tcomm::TComm,
@@ -28,9 +36,9 @@ use crate::{
       },
       xtension::Xtension,
     },
-    read::{FixedFormatRead, KwrFormatRead},
+    read::{FixedFormatRead, KwrFormatRead, is_value_indicator},
   },
-  error::Error,
+  error::{Error, new_custom},
   hdu::{
     HDUType,
     header::Header,
@@ -92,6 +100,253 @@ impl BinTableColumnHeader {
 
   // format (tdips)
   // shape (tdim)
+
+  /// Replace the empty elements by the ones provided in the given VOTable field.
+  /// If the option `overwrite` is set to `true`, elements are overwritten (except the ones defining the
+  /// datatype, i.e. TFORM, TDIM, TNULL, TSCAL and TZERO;  and TDISP).
+  #[cfg(feature = "vot")]
+  pub fn merge(&mut self, icol: u16, field: &votable::Field, overwrite: bool) {
+    // Can be used to create a FITS Column header from a VOTable FIELD!
+    let n = icol + 1;
+    if self.ttype.is_none() || overwrite {
+      if let Some(prev) = self.ttype.replace(TType::new(n, field.name.clone())) {
+        warn!(
+          "Col {}. Name '{}' replaced by '{}'.",
+          n,
+          prev.col_name(),
+          field.name
+        );
+      }
+    }
+    // Handels array information
+    let compute_size = |elems: &Vec<u32>| elems.iter().fold(1_u32, |acc, n| acc * *n);
+    let tdim_value = |elems: &Vec<u32>| {
+      TDim::new(
+        n,
+        elems.iter().map(|v| *v as u16).collect::<Vec<u16>>().into(),
+      )
+    };
+    enum Type {
+      Fixed(RepeatCountAndExtraChar),
+      Var(u16), // max_len
+    }
+
+    // No overwrite for column format
+    if self.tform.is_none() {
+      let array_type = field
+        .arraysize
+        .as_ref()
+        .map(|array_size| match array_size {
+          ArraySize::Fixed1D { size } => {
+            Type::Fixed(RepeatCountAndExtraChar::default().with_r(*size as u16))
+          }
+          ArraySize::FixedND { sizes } => {
+            self.tdim = Some(tdim_value(sizes));
+            Type::Fixed(RepeatCountAndExtraChar::default().with_r(compute_size(sizes) as u16))
+          }
+          ArraySize::VariableWithUpperLimit1D { upper_limit } => Type::Var(*upper_limit as u16),
+          ArraySize::VariableWithUpperLimitND { sizes, upper_limit } => {
+            let mut sizes = sizes.clone();
+            sizes.push(*upper_limit);
+            self.tdim = Some(tdim_value(&sizes));
+            Type::Var(compute_size(&sizes) as u16)
+          }
+          ArraySize::Variable1D => {
+            warn!("Set variable length array upper size to the arbitrary 16!");
+            Type::Var(16_u16)
+          }
+          ArraySize::VariableND { sizes } => {
+            warn!("Set variable length array upper size to the arbitrary 16!");
+            let mut sizes = sizes.clone();
+            sizes.push(16);
+            self.tdim = Some(tdim_value(&sizes));
+            Type::Var(compute_size(&sizes) as u16)
+          }
+        })
+        .unwrap_or(Type::Fixed(RepeatCountAndExtraChar::default()));
+
+      // TODO: Add other ArraySize and set TDIM accordingly!
+      let tform = match (&field.datatype, array_type) {
+        (Datatype::Logical, Type::Fixed(r)) => TFormn::new(n, TFormValue::L(r)),
+        (Datatype::Bit, Type::Fixed(r)) => TFormn::new(n, TFormValue::X(r)),
+        (Datatype::Byte, Type::Fixed(r)) => TFormn::new(n, TFormValue::B(r)),
+        (Datatype::ShortInt, Type::Fixed(r)) => TFormn::new(n, TFormValue::I(r)),
+        (Datatype::Int, Type::Fixed(r)) => TFormn::new(n, TFormValue::J(r)),
+        (Datatype::LongInt, Type::Fixed(r)) => TFormn::new(n, TFormValue::K(r)),
+        (Datatype::CharASCII, Type::Fixed(r)) => TFormn::new(n, TFormValue::A(r)),
+        (Datatype::Float, Type::Fixed(r)) => TFormn::new(n, TFormValue::E(r)),
+        (Datatype::Double, Type::Fixed(r)) => TFormn::new(n, TFormValue::D(r)),
+        (Datatype::ComplexFloat, Type::Fixed(r)) => TFormn::new(n, TFormValue::C(r)),
+        (Datatype::ComplexDouble, Type::Fixed(r)) => TFormn::new(n, TFormValue::M(r)),
+        (Datatype::CharUnicode, Type::Fixed(r)) => {
+          // Return a result instead?
+          warn!("FITS not supposed to support UnicodeChar!");
+          TFormn::new(n, TFormValue::A(r))
+        }
+        (dt, Type::Var(max_len)) => TFormn::new(
+          n,
+          TFormValue::Q(VariableLenghtArrayInfo::new(
+            None,
+            match dt {
+              Datatype::Logical => VariableLenghtArrayDataType::L,
+              Datatype::Bit => todo!(),
+              Datatype::Byte => VariableLenghtArrayDataType::B,
+              Datatype::ShortInt => VariableLenghtArrayDataType::I,
+              Datatype::Int => VariableLenghtArrayDataType::J,
+              Datatype::LongInt => VariableLenghtArrayDataType::K,
+              Datatype::CharASCII => VariableLenghtArrayDataType::A,
+              Datatype::Float => VariableLenghtArrayDataType::E,
+              Datatype::Double => VariableLenghtArrayDataType::D,
+              Datatype::ComplexFloat => VariableLenghtArrayDataType::C,
+              Datatype::ComplexDouble => VariableLenghtArrayDataType::M,
+              _ => todo!(),
+            },
+            max_len,
+            None,
+          )),
+        ),
+      };
+      self.tform = Some(tform);
+    }
+    if self.tdisp.is_none() {
+      match (field.width, &field.precision, &self.tform) {
+        (
+          Some(w),
+          Some(p),
+          Some(TFormn {
+            value: TFormValue::E(..) | TFormValue::D(..),
+            ..
+          }),
+        ) => {
+          self.tdisp = match p {
+            Precision::F { n_decimal } => Some(TDispn::new(
+              n,
+              TDispValue::F {
+                w,
+                d: *n_decimal as u16,
+              },
+            )),
+            Precision::E { n_significant } => Some(TDispn::new(
+              n,
+              TDispValue::E {
+                w,
+                d: *n_significant as u16,
+                e: None,
+              },
+            )),
+          }
+        }
+        (
+          Some(w),
+          None,
+          Some(TFormn {
+            value: TFormValue::A(..),
+            ..
+          }),
+        ) => self.tdisp = Some(TDispn::new(n, TDispValue::A { w })), // I
+        (
+          Some(w),
+          None,
+          Some(TFormn {
+            value: TFormValue::L(..),
+            ..
+          }),
+        ) => self.tdisp = Some(TDispn::new(n, TDispValue::L { w })),
+        (
+          Some(w),
+          None,
+          Some(TFormn {
+            value: TFormValue::B(..) | TFormValue::I(..) | TFormValue::J(..) | TFormValue::K(..),
+            ..
+          }),
+        ) => self.tdisp = Some(TDispn::new(n, TDispValue::I { w, m: None })),
+        _ => {}
+      }
+    }
+    // CHECK TFORM COMPATIBILITY??! + scale offset
+    // tdisp?
+    // Create:
+    // * TLINK ? (keep only the first link of the field)
+    // * TUTYP ?
+    // * TXTYP ?
+    if let Some(unit) = field.unit.as_ref()
+      && (self.tunit.is_none() || overwrite)
+    {
+      if let Some(prev) = self.tunit.replace(TUnit::new(n, unit.clone())) {
+        warn!(
+          "Col {}. Unit '{}' replaced by '{}'.",
+          n,
+          prev.col_unit(),
+          unit
+        );
+      }
+    }
+    if let Some(ucd) = field.ucd.as_ref()
+      && (self.tucd.is_none() || overwrite)
+    {
+      if let Some(prev) = self.tucd.replace(TUCD::new(n, ucd.clone())) {
+        warn!("Col {}. UCD '{}' replaced by '{}'.", n, prev.col_ucd(), ucd);
+      }
+    }
+    if let Some(desc) = field.description.as_ref()
+      && (self.tcomm.is_none() || overwrite)
+    {
+      if let Some(prev) = self
+        .tcomm
+        .replace(TComm::new(n, desc.get_content_unwrapped().into()))
+      {
+        warn!(
+          "Col {}. Description '{}' replaced by '{}'.",
+          n,
+          prev.col_description(),
+          desc.get_content_unwrapped()
+        );
+      }
+    }
+    if let Some(values) = &field.values {
+      // Null value (nut no overwrite!)
+      if let Some(null) = &values.null
+        && self.tnull.is_none()
+      {
+        if let Ok(null) = null.parse::<i64>() {
+          self.tnull.replace(TNull::new(n, null));
+        } else {
+          warn!(
+            "Col {}. Impossible to set null value '{}': it is not an integer!",
+            n, null
+          );
+        }
+      }
+      // Min value
+      if let Some(min) = &values.min
+        && (self.tdmin.is_none() || overwrite)
+      {
+        // TODO: do something about inclusive/exclusive ?
+        if let Some(prev) = self.tdmin.replace(TDMin::new(n, min.value.clone())) {
+          warn!(
+            "Col {}. Min value '{}' replaced by '{}'.",
+            n,
+            prev.min_value(),
+            min.value
+          );
+        }
+      }
+      // Max value
+      if let Some(max) = &values.max
+        && (self.tdmax.is_none() || overwrite)
+      {
+        // TODO: do something about inclusive/exclusive ?
+        if let Some(prev) = self.tdmax.replace(TDMax::new(n, max.value.clone())) {
+          warn!(
+            "Col {}. Max value '{}' replaced by '{}'.",
+            n,
+            prev.max_value(),
+            max.value
+          );
+        }
+      }
+    }
+  }
 
   pub fn schema(&self) -> Option<Schema> {
     let scale = self.tscal.as_ref().map(|s| s.scale()).unwrap_or(1.0);

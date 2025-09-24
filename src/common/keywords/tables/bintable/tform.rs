@@ -23,6 +23,14 @@ impl RepeatCountAndExtraChar {
   fn new(r: Option<u16>, a: Option<u8>) -> Self {
     Self { r, a }
   }
+  pub fn with_r(mut self, r: u16) -> Self {
+    self.r = Some(r);
+    self
+  }
+  pub fn with_a(mut self, a: u8) -> Self {
+    self.a = Some(a);
+    self
+  }
   fn to_string_with(&self, letter: u8) -> String {
     match (self.r, self.a) {
       (None, None) => format!("{}", letter as char),
@@ -33,6 +41,11 @@ impl RepeatCountAndExtraChar {
   }
   pub fn repeat_count(&self) -> u16 {
     self.r.unwrap_or(1)
+  }
+}
+impl Default for RepeatCountAndExtraChar {
+  fn default() -> Self {
+    Self::new(None, None)
   }
 }
 /*
@@ -55,7 +68,7 @@ pub struct VariableLenghtArrayInfo {
   a: Option<u8>,
 }
 impl VariableLenghtArrayInfo {
-  fn new(
+  pub fn new(
     r_is_1: Option<bool>,
     data_type: VariableLenghtArrayDataType,
     max_len: u16,
@@ -363,8 +376,8 @@ impl Display for TFormValue {
 }
 
 pub struct TFormn {
-  n: u16,
-  value: TFormValue,
+  pub n: u16,
+  pub value: TFormValue,
 }
 impl TFormn {
   /// # Params

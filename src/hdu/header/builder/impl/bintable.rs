@@ -5,7 +5,7 @@
 use crate::{
   error::Error,
   hdu::{
-    header::{builder::HeaderBuilder, Header},
+    header::{Header, builder::HeaderBuilder},
     primary::header::PrimaryHeader,
     xtension::{
       asciitable::header::AsciiTableHeader,
@@ -16,24 +16,37 @@ use crate::{
   },
 };
 
+#[cfg(feature = "vot")]
+use crate::hdu::primary::header::PrimaryHeaderWithVOTable;
+
 /// Minimalist header builder: simply returns the already known header, without parsing additional keywords.
 pub enum Bintable {}
 
 impl HeaderBuilder for Bintable {
+  #[cfg(not(feature = "vot"))]
   type PriH = PrimaryHeader;
+  #[cfg(feature = "vot")]
+  type PriH = PrimaryHeaderWithVOTable;
   type AscH = AsciiTableHeader;
   type BinH = BinTableHeaderWithColInfo;
   type ImgH = ImageHeader;
   type UnkH = UnknownXtensionHeader;
 
-  fn build_primary<'a, I>(
-    header: PrimaryHeader,
-    _kw_records_it: &mut I,
-  ) -> Result<Self::PriH, Error>
+  fn build_primary<'a, I>(header: PrimaryHeader, kw_records_it: &mut I) -> Result<Self::PriH, Error>
   where
     I: Iterator<Item = (usize, &'a [u8; 80])>,
   {
-    Ok(header)
+    #[cfg(not(feature = "vot"))]
+    {
+      Ok(header)
+    }
+    #[cfg(feature = "vot")]
+    {
+      let mut header: PrimaryHeaderWithVOTable = header.into();
+      header
+        .consume_remaining_kw_records(kw_records_it)
+        .map(|()| header)
+    }
   }
 
   fn build_asciitable<'a, I>(

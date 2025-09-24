@@ -2,26 +2,29 @@
 
 use std::{
   fmt::{Display, Formatter},
-  str::{
-    FromStr,
-  }
+  str::FromStr,
 };
 
 use crate::{
   common::{
-    DynValueKwr,
+    DynValueKwr, FreeFormat, KwrFormatRead,
     write::{FreeFormatWrite, KwrFormatWrite},
-    FreeFormat, KwrFormatRead,
   },
   error::{Error, new_parse_u16_err},
 };
 
 ///First dimension is the one varying most rapidly.
 pub struct TDimValue(Vec<u16>);
+impl From<Vec<u16>> for TDimValue {
+  fn from(value: Vec<u16>) -> Self {
+    Self(value)
+  }
+}
 impl FromStr for TDimValue {
   type Err = Error;
   fn from_str(s: &str) -> Result<Self, Self::Err> {
-    s.trim().trim_matches(&['(', ')'])
+    s.trim()
+      .trim_matches(&['(', ')'])
       .split(',')
       .map(|s| s.parse::<u16>())
       .collect::<Result<Vec<_>, _>>()
@@ -77,9 +80,8 @@ impl DynValueKwr for TDim {
   }
 
   fn from_value_comment(n: u16, kwr_value_comment: &[u8; 70]) -> Result<Self, Error> {
-    FreeFormat::parse_string_value_no_quote(kwr_value_comment).and_then(|(val, _comment)| {
-      val.parse::<TDimValue>().map(|v| Self::new(n, v))
-    })
+    FreeFormat::parse_string_value_no_quote(kwr_value_comment)
+      .and_then(|(val, _comment)| val.parse::<TDimValue>().map(|v| Self::new(n, v)))
   }
 
   fn write_kw_record<'a, I>(&self, dest_kwr_it: &mut I) -> Result<(), Error>

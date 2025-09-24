@@ -1,12 +1,19 @@
 //! Read a FITS file from in-memory (or memory mapped) data, allowing seek access.
 //! This mode e.g. supports BINTABLE columns having data stored in the HEAP.
 
-use std::marker::PhantomData;
+use std::{fmt::Binary, marker::PhantomData};
 
 use crate::{
   error::Error,
-  hdu::header::{HDUHeader, builder::HeaderBuilder, raw::RawHeader},
+  hdu::header::{
+    HDUHeader,
+    builder::{HeaderBuilder, r#impl::bintable::Bintable},
+    raw::RawHeader,
+  },
 };
+
+#[cfg(feature = "vot")]
+use votable::{VOTable, VOTableError, impls::mem::InMemTableDataRows, votable::VOTableWrapper};
 
 /// The full content, i.e. all bytes, of a fits file.
 /// # Lifetime
@@ -50,6 +57,26 @@ impl<'u, B: HeaderBuilder> HDU<'u, B> {
 
   pub fn data(&self) -> &'u [u8] {
     self.data
+  }
+}
+
+impl<'u> HDU<'u, Bintable> {
+  #[cfg(feature = "vot")]
+  pub fn is_fits_plus_primary_hdu(&self) -> bool {
+    match &self.parsed_header {
+      HDUHeader::Primary(h) if h.is_fits_plus() => true,
+      _ => false,
+    }
+  }
+
+  #[cfg(feature = "vot")]
+  pub fn parse_votable_if_any(&self) -> Option<Result<VOTable<InMemTableDataRows>, VOTableError>> {
+    match &self.parsed_header {
+      HDUHeader::Primary(h) if h.is_fits_plus() => Some(
+        VOTableWrapper::<InMemTableDataRows>::from_ivoa_xml_bytes(self.data).map(|w| w.votable),
+      ),
+      _ => None,
+    }
   }
 }
 
@@ -113,3 +140,11 @@ impl<'a, B: HeaderBuilder> Iterator for HDUIterator<'a, B> {
     }
   }
 }
+
+/*
+/// Decorator for `HDUIterator` for FITS Plus files, automatically updating columns information.
+#[cfg(feature = "vot")]
+pub struct HDUIteratorWithVOT<'a> {
+  hdu_it: HDUIterator<'a, Bintable>,
+}
+*/

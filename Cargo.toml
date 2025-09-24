@@ -19,6 +19,13 @@ log = "0.4"
 [dependencies]
 log = { workspace = true }
 thiserror = "2.0"
+votable = { version = "0.6", optional = true }
+cdshealpix = { version = "0.7", optional = true }
+
 
 [features]
-# no features so far
+default = []
+# Supports the FITS-plys format (M. Taylors), i.e. VOTable header in the Primary HDU
+all = ["vot", "hpx"]
+vot = ["dep:votable"]
+hpx = ["dep:cdshealpix"]

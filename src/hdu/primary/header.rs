@@ -1,14 +1,17 @@
+#[cfg(feature = "vot")]
+use crate::common::keywords::tables::bintable::vot::{ntable::NTable, votmeta::VOTMeta};
 use crate::{
   common::{
+    DynValueKwr, ValueKwr,
     keywords::{
       bitpix::BitPix,
       naxis::{NAxis, NAxisn},
       simple::Simple,
     },
-    DynValueKwr, ValueKwr,
+    read::{FixedFormatRead, KwrFormatRead, is_value_indicator},
   },
   error::Error,
-  hdu::{header::Header, HDUType},
+  hdu::{HDUType, header::Header},
 };
 
 pub struct PrimaryHeader {
@@ -98,3 +101,88 @@ impl Header for PrimaryHeader {
 //   PSCALn
 //   PZEROn
 // }
+
+///
+#[cfg(feature = "vot")]
+pub struct PrimaryHeaderWithVOTable {
+  /// Minimal Required Header to be able to skip data
+  mrh: PrimaryHeader,
+  /// Marker for FITS Plus file
+  votmeta: Option<VOTMeta>,
+  /// Number iof following Binary HDUs
+  ntable: Option<NTable>,
+}
+#[cfg(feature = "vot")]
+impl PrimaryHeaderWithVOTable {
+  pub fn new(mrh: PrimaryHeader) -> Self {
+    Self {
+      mrh,
+      votmeta: None,
+      ntable: None,
+    }
+  }
+  pub fn is_fits_plus(&self) -> bool {
+    self
+      .votmeta
+      .as_ref()
+      .map(|kw| kw.is_true())
+      .unwrap_or(false)
+  }
+  pub fn n_bintable_hdu(&self) -> u16 {
+    self.ntable.as_ref().map(|kw| kw.get()).unwrap_or(0)
+  }
+}
+
+#[cfg(feature = "vot")]
+impl Header for PrimaryHeaderWithVOTable {
+  fn from_starting_mandatory_kw_records<'a, I>(
+    hdu_type: HDUType,
+    kw_records_it: &mut I,
+  ) -> Result<Self, Error>
+  where
+    I: Iterator<Item = (usize, &'a [u8; 80])>,
+  {
+    PrimaryHeader::from_starting_mandatory_kw_records(hdu_type, kw_records_it).map(|v| v.into())
+  }
+
+  fn data_byte_size(&self) -> u64 {
+    self.mrh.data_byte_size()
+  }
+
+  fn write_starting_mandatory_kw_records<'a, I>(&self, dest: &mut I) -> Result<(), Error>
+  where
+    I: Iterator<Item = Result<&'a mut [u8; 80], Error>>,
+  {
+    self.mrh.write_starting_mandatory_kw_records(dest)
+  }
+
+  fn consume_remaining_kw_records<'a, I>(&mut self, kw_records_it: &mut I) -> Result<(), Error>
+  where
+    I: Iterator<Item = (usize, &'a [u8; 80])>,
+  {
+    for (_, kwr) in kw_records_it {
+      let (kw, ind, kw_value_comment) = FixedFormatRead::split_kw_indicator_value(kwr);
+      // Skip keyword if it does not contain a value indicator
+      if !is_value_indicator(ind) {
+        continue;
+      }
+      // Analyse keywords
+      match kw {
+        VOTMeta::KEYWORD => {
+          VOTMeta::from_value_comment(kw_value_comment).map(|kw| self.votmeta.replace(kw))?;
+        }
+        NTable::KEYWORD => {
+          NTable::from_value_comment(kw_value_comment).map(|kw| self.ntable.replace(kw))?;
+        }
+        _ => {}
+      }
+    }
+    Ok(())
+  }
+}
+#[cfg(feature = "vot")]
+impl From<PrimaryHeader> for PrimaryHeaderWithVOTable {
+  fn from(mrh: PrimaryHeader) -> Self {
+    Self::new(mrh)
+  }
+}
