@@ -1,10 +1,9 @@
 //! Read a FITS file from in-memory (or memory mapped) data, allowing seek access.
 //! This mode e.g. supports BINTABLE columns having data stored in the HEAP.
-
-use std::{fmt::Binary, marker::PhantomData};
+use std::{io::Write, marker::PhantomData};
 
 use crate::{
-  error::Error,
+  error::{Error, new_io_err},
   hdu::header::{
     HDUHeader,
     builder::{HeaderBuilder, r#impl::bintable::Bintable},
@@ -43,8 +42,19 @@ pub struct HDU<'u, B: HeaderBuilder> {
   pub data: &'u [u8],
 }
 impl<'u, B: HeaderBuilder> HDU<'u, B> {
+  pub fn is_primary_hdu(&self) -> bool {
+    matches!(&self.parsed_header, HDUHeader::Primary(_))
+  }
+  pub fn is_bintable_hdu(&self) -> bool {
+    matches!(&self.parsed_header, HDUHeader::BinTable(_))
+  }
+
   pub fn starting_byte(&self) -> usize {
     self.starting_byte
+  }
+
+  pub fn data_starting_byte(&self) -> usize {
+    self.starting_byte + self.raw_header.byte_size()
   }
 
   pub fn raw_header(&self) -> &RawHeader<&'u [u8; 2880]> {
@@ -58,6 +68,31 @@ impl<'u, B: HeaderBuilder> HDU<'u, B> {
   pub fn data(&self) -> &'u [u8] {
     self.data
   }
+
+  pub fn copy_hdu<W: Write>(&self, w: &mut W) -> Result<(), Error> {
+    self
+      .copy_header(w)
+      .and_then(|()| self.copy_data(w))
+      .and_then(|()| self.copy_blanks(w))
+  }
+
+  pub fn copy_header<W: Write>(&self, w: &mut W) -> Result<(), Error> {
+    self.raw_header.copy(w)
+  }
+
+  pub fn copy_data<W: Write>(&self, w: &mut W) -> Result<(), Error> {
+    w.write_all(self.data).map_err(new_io_err)
+  }
+
+  pub fn copy_blanks<W: Write>(&self, w: &mut W) -> Result<(), Error> {
+    let rem2880 = self.data.len() % 2880;
+    if rem2880 != 0 {
+      w.write_all(vec![0_u8; 2880 - rem2880].as_slice())
+        .map_err(new_io_err)
+    } else {
+      Ok(())
+    }
+  }
 }
 
 impl<'u> HDU<'u, Bintable> {
@@ -66,6 +101,14 @@ impl<'u> HDU<'u, Bintable> {
     match &self.parsed_header {
       HDUHeader::Primary(h) if h.is_fits_plus() => true,
       _ => false,
+    }
+  }
+
+  #[cfg(feature = "vot")]
+  pub fn n_bintable_hdu(&self) -> u16 {
+    match &self.parsed_header {
+      HDUHeader::Primary(h) if h.is_fits_plus() => h.n_bintable_hdu(),
+      _ => 0,
     }
   }
 

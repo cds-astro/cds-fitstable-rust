@@ -15,17 +15,24 @@ members = [
 
 [workspace.dependencies]
 log = "0.4"
+memmap2 = "0.9"
+votable = { version = "0.6.3" }
+cdshealpix = { git = "https://github.com/cds-astro/cds-healpix-rust", rev = "b241c64" }
+skyregion = { git = "https://github.com/cds-astro/cds-skyregion-rust", features = ["rayon"] }
 
 [dependencies]
 log = { workspace = true }
+memmap2 = { workspace = true }
+votable = { workspace = true, optional = true }
+cdshealpix = { workspace = true, optional = true }
+skyregion = { workspace = true, optional = true }
 thiserror = "2.0"
-votable = { version = "0.6", optional = true }
-cdshealpix = { version = "0.7", optional = true }
 
 
 [features]
-default = []
-# Supports the FITS-plys format (M. Taylors), i.e. VOTable header in the Primary HDU
+default = ["all"]
 all = ["vot", "hpx"]
+# Supports the FITS-plus format (M. Taylors), i.e. VOTable header in the Primary HDU
 vot = ["dep:votable"]
-hpx = ["dep:cdshealpix"]
+# Supports HEALPix related functions (sort, index, ...)
+hpx = ["dep:cdshealpix", "dep:skyregion"]

@@ -6,11 +6,24 @@ use super::read::{
 };
 use crate::error::Error;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct RowSchema {
   fields_schemas: Vec<FieldSchema>,
 }
 impl RowSchema {
+  /*
+  /// Returns `true` is both schema have ths ame binary layout, i.e. same number of fields
+  /// with same datatypes (and same possible OFFSET and SCALE), ...
+  pub fn as_same_binary_layout_than(&self, rhs: &RowSchema) -> bool {
+    if self.fields_schemas.len() != rhs.fields_schemas.len() {
+      false
+    } else {
+      for (l, r) in self.fields_schemas.iter().zip(rhs.fields_schemas.iter()) {
+        if l.is_
+      }
+    }
+  }*/
+
   pub fn n_cols(&self) -> usize {
     self.fields_schemas.len()
   }
@@ -51,12 +64,12 @@ impl FromIterator<Schema> for RowSchema {
   }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FieldSchema {
   /// The starting byte of the field in the stored row bytes.
-  starting_byte: usize,
+  pub starting_byte: usize,
   /// The schema of the field.
-  schema: Schema,
+  pub schema: Schema,
 }
 impl FieldSchema {
   pub fn new(byte_offset: usize, field_schema: Schema) -> Self {
@@ -193,7 +206,7 @@ impl<'de, 'a> DeserializeSeed<'de> for FieldSchema {
       Schema::ComplexDoubleArray(p) => de.deserialize_complex_double_array(p.len, from, v),
       Schema::AsciiString(p) => de.deserialize_ascii_string_fixed_length(p.len, from, v),
       Schema::HeapArrayPtr32(has) => match has {
-        HeapArraySchema::HeapNullableBooleanArray(p) => {
+        HeapArraySchema::HeapNullableBooleanArray(_) => {
           de.deserialize_opt_bool_vararray_ptr32(from, v)
         }
         HeapArraySchema::HeapByteArray(_) => de.deserialize_byte_vararray_ptr32(from, v),
@@ -391,7 +404,7 @@ impl<'de, 'a> DeserializeSeed<'de> for FieldSchema {
 /// Scale and offset to be used in the transformation:
 /// > output_value = scale * stored_value + offset
 /// for a 32-bit float
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ScaleOffset32 {
   scale: f32,
   offset: f32,
@@ -405,7 +418,7 @@ impl ScaleOffset32 {
 /// Scale and offset to be used in the transformation:
 /// > output_value = scale * stored_value + offset
 /// for a 64-bit float
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ScaleOffset64 {
   scale: f64,
   offset: f64,
@@ -417,7 +430,7 @@ impl ScaleOffset64 {
 }
 
 /// Regular array parameter (only the length so far).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ArrayParam {
   len: usize,
 }
@@ -439,7 +452,7 @@ impl From<&HeapArrayParam> for ArrayParam {
 }
 
 /// Array parameter with scaled and offset for 32-bit floats.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ArrayParamWithScaleOffset32 {
   array_params: ArrayParam,
   scale_offset: ScaleOffset32,
@@ -459,7 +472,7 @@ impl From<&HeapArrayParamWithScaleOffset32> for ArrayParamWithScaleOffset32 {
 }
 
 /// Array parameter with scaled and offset for 64-bit floats.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ArrayParamWithScaleOffset64 {
   array_params: ArrayParam,
   scale_offset: ScaleOffset64,
@@ -479,7 +492,7 @@ impl From<&HeapArrayParamWithScaleOffset64> for ArrayParamWithScaleOffset64 {
 }
 
 /// Variable length array parameter (only the length so far).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HeapArrayParam {
   /// Upper bound on the stored array size.
   max_len: usize,
@@ -508,7 +521,7 @@ impl From<&ArrayParam> for HeapArrayParam {
 }
 
 /// Variable length array parameter with scaled and offset for 32-bit floats.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct HeapArrayParamWithScaleOffset32 {
   heap_params: HeapArrayParam,
   scale_offset: ScaleOffset32,
@@ -523,7 +536,7 @@ impl HeapArrayParamWithScaleOffset32 {
 }
 
 /// Variable length array parameter with scaled and offset for 64-bit floats.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct HeapArrayParamWithScaleOffset64 {
   heap_params: HeapArrayParam,
   scale_offset: ScaleOffset64,
@@ -539,7 +552,7 @@ impl HeapArrayParamWithScaleOffset64 {
 
 /// Represent both the logical and the storage data type information
 /// (and how to convert the storage type to the logical type and conversely).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Schema {
   // When repeat count = 0
   Empty,
@@ -806,7 +819,7 @@ impl Display for Schema {
   }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum HeapArraySchema {
   // Bool
   HeapNullableBooleanArray(HeapArrayParam),

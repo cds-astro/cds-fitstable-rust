@@ -1,25 +1,11 @@
 use crate::{
   error::{new_unsupported_by_visitor, Error},
-  hdu::xtension::bintable::{
-    field::{ComplexF32, ComplexF64},
-    read::deser::{Deserialize, DeserializeSeed},
-  },
+  hdu::xtension::bintable::field::{ComplexF32, ComplexF64},
 };
 
 pub mod csv;
 pub mod field;
 pub mod primitive;
-
-/*
-pub trait RowAccess<'de> {
-  fn next_field_seed<T, V>(&mut self, seed: T, visitor: V) -> Result<Option<V::Value>, Error>
-  where
-    T: DeserializeSeed<'de>,
-    V: Visitor<'de>;
-
-  /// Returns the number of elements remaining in the sequence.
-  fn size_hint(&self) -> usize;
-}*/
 
 pub trait FieldVisitorProvider {
   type FieldValue;
@@ -52,13 +38,6 @@ pub trait Visitor: Sized {
   fn expecting(&self) -> &str {
     "nothing (default impl)"
   }
-
-  /*fn visit_row<R>(self, row: R) -> Result<Self::Value, Error>
-  where
-    R: RowAccess<'de>,
-  {
-    Err(new_unsupported_by_visitor(self.expecting(), "Row"))
-  }*/
 
   fn visit_empty(self) -> Result<Self::Value, Error> {
     Err(new_unsupported_by_visitor(self.expecting(), "Empty column"))
