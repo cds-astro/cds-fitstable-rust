@@ -48,6 +48,7 @@ cargo install --path crates/cli
 
 ```bash
 > fitstable
+
 Command-line tool for fitstable
 
 Usage: fitstable <COMMAND>
@@ -55,7 +56,11 @@ Usage: fitstable <COMMAND>
 Commands:
   struct  Read and print the structure of a FITS file
   head    Read and print the headers of all the HDU in a FITS file
-  csv     Print found table in CSV
+  info    Print tables information (such as column names, units, ...)
+  csv     Print tables in CSV format
+  sort    Sort a file, or sort and concatenate a set of files, according to HEALPix
+  mkidx   Make a positional index for HEALPix sorted files
+  qidx    Query a BINTABLE according to a HEALPix index
   help    Print this message or the help of the given subcommand(s)
 
 Options:
@@ -64,6 +69,7 @@ Options:
 
 
 >  fitstable csv --help
+
 Print found table in CSV
 
 Usage: fitstable csv [OPTIONS] <FILE>
@@ -82,6 +88,8 @@ Options:
 
 ## Performances
 
+### FITS to CSV conversion
+
 We tested the FITS BINTABLE to CSV conversion speed using the 1.3 GB unzipped
 file [4XMM DR11](http://xmmssc.irap.omp.eu/Catalogue/4XMM-DR11/4XMM_DR11cat_v1.0.fits.gz) available
 from [this page](http://xmmssc.irap.omp.eu/Catalogue/4XMM-DR11/4XMM_DR11.html).
@@ -97,19 +105,19 @@ both writing in a file and in `/dev/null`. Here the results:
 
 real	0m3,758s
 user	0m42,544s
-sys	0m7,346s
+sys 	0m7,346s
 
 > time fitstable csv 4XMM_DR11cat_v1.0.fits -o /dev/null --parallel 32
 
 real	0m2,226s
 user	0m40,174s
-sys	0m3,483s
+sys 	0m3,483s
 
 > time fitstable csv 4XMM_DR11cat_v1.0.fits -o /dev/null --parallel 32 -s
 
 real	0m1,984s
 user	0m38,573s
-sys	0m2,640s
+sys 	0m2,640s
 ```
 
 For the first command, we achieve conversion + writing speed of more than **700 MB/s**
@@ -118,7 +126,6 @@ reaches **1.2 GB/s**. Those measures were made with a hot disk cache.
 
 Conclusion: with enough CPUs, IOs, in particular the writing speed, seem to be the main limiting factor.
 
-## Examples
 
 ### Sort and query 4XMM-DR14
 
@@ -126,6 +133,7 @@ Conclusion: with enough CPUs, IOs, in particular the writing speed, seem to be t
 # Donwload and uncompress the 4XMM-DR14 catalogue (1.4GB)
 > wget 'https://nxsa.esac.esa.int/catalogues/4xmmdr14_240411.fits.gz'
 > gzip -d 4xmmdr14_240411.fits.gz
+
 # Look a the RA/DEC column indices
 > time fitstable info 4xmmdr14_240411.fits
 HDU[1]:  BINTABLE  n_cols: 336; n_rows : 1035832
@@ -138,28 +146,28 @@ HDU[1]:  BINTABLE  n_cols: 336; n_rows : 1035832
 
 real	0m0,031s
 user	0m0,002s
-sys	0m0,003s
+sys 	0m0,003s
 
 # Sort the file
 > time fitstable sort 4xmmdr14_240411.fits 4xmmdr14_240411.sorted.fits --lon 26 --lat 27 --chunk-size 10485760000
 
 real	0m22,906s
 user	0m1,467s
-sys	0m4,136s
+sys 	0m4,136s
 
 # Create an external HEALPix Index on file (default depth = 9)
 > time fitstable mkidx 4xmmdr14_240411.sorted.fits 4xmmdr14_240411.sorted.hidx.fits --lon 26 --lat 27
 
 real	0m2,343s
 user	0m0,159s
-sys	0m0,942s
+sys 	0m0,942s
 
 # Get all sources in a HEALPix cell 4/1
 > time fitstable qidx 4xmmdr14_240411.sorted.hidx.fits q.fits hpx 4 1
 
 real	0m0,009s
 user	0m0,003s
-sys	0m0,005s
+sys 	0m0,005s
 
 # Look at the file structure to know the number of rows
 # WARNING: so far, reading with STITS is ok, but not with TOPCAT
@@ -182,7 +190,7 @@ HDU[1]:
 
 real	0m0,024s
 user	0m0,003s
-sys	0m0,009s
+sys 	0m0,009s
 
 > fitstable struct q.fits
 
@@ -211,21 +219,33 @@ RUST_LOG=debug cargo run --release -- ...
 
 ### Sort and query a set of ESO catalogue FITS files
 
-Disclaimer: tests performed on a server with disks accessed through a local network.
+Disclaimer: the following commands have been executed on a server with disks accessed through a local network.
+Better results are expected on SSDs.
 
 ```bash
 # Go to https://www.eso.org/qi/ 
 # Look at VMD DR6 info https://www.eso.org/qi/catalog/show/396
 # And donwload all FITS files (login requested) in a 'orgdata' diretory
-# Look a RA/Dec columns indices using
+# We get 113 FITS files, from 56 MB to 586 MB, and for a total of 30 GB
+
+# Look a RA/Dec columns indices using a random table
 > fitstable info orgdata/ADP.2022-07-28T13:55:38.537.fits
 
-# Merge and sort all FITS files in a vmc_dr6.fits file
+HDU[1]:  BINTABLE  n_cols: 96; n_rows : 196582
+   #                 name  type   unit                             ucd desc                                                                
+   0              IAUNAME s[29]                                meta.id IAU Name (not unique)                                               
+...
+   4               RA2000   f64    deg             pos.eq.ra;meta.main Celestial Right Ascension                                           
+   5              DEC2000   f64    deg            pos.eq.dec;meta.main Celestial Declination
+...
+
+
+# Merge and sort all FITS files in a vmc_dr6.fits file (output size: 30 GB)
 > time fitstable sort orgdata vmc_dr6.fits --lon 5 --lat 6 --depth 10 --chunk-size 1073741824
 
-real	11m51,598s
-user	10m3,839s
-sys	2m14,942s
+real    11m51,598s
+user    10m3,839s
+sys      2m14,942s
 
 # Look at the total number of rows
 > fitstable struct vmc_dr6.fits
@@ -244,17 +264,17 @@ HDU[1]:
 # Create an HEALPix index
 > fitstable mkidx vmc_dr6.fits vmc_dr6.hidx.fits --lon 5 --lat 6 --depth 9
 
-real	1m39,131s
-user	0m10,111s
-sys	0m16,943s
+real    1m39,131s
+user    0m10,111s
+sys     0m16,943s
 
 
 # Perform a positional query around the LMC
 > time ./fitstable qidx vmc_dr6.hidx.fits res.fits cone 80.8942 -69.75 0.1
 
-real	0m0,038s
-user	0m0,014s
-sys	0m0,022s
+real    0m0,038s
+user    0m0,014s
+sys     0m0,022s
 
 # Look at the result file, it contains 32454 rows
 > ./fitstable struct res.fits 
@@ -271,7 +291,7 @@ HDU[1]:
    + n_cols: 96; n_rows : 32454; row_byte_size: 444; heap_byte_size: 0.
   
 # Bonus: if you install hpx-cli https://github.com/cds-astro/cds-healpix-rust/tree/master/crates/cli
-# you can create a density map from the generated 'vmc_dr6.countmap.fits' file
+# to create a density map from the generated 'vmc_dr6.countmap.fits' file
 hpx map view vmc_dr6.countmap.fits vmc_dr6.png allsky 300
 
 ```
