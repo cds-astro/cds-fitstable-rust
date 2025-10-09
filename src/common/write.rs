@@ -1,5 +1,5 @@
 use std::{io::Write, ptr::copy_nonoverlapping};
-use std::ptr::write;
+
 use log::warn;
 
 use crate::{
@@ -145,7 +145,6 @@ pub trait KwrFormatWrite {
     value: u64,
     comment: Option<&str>,
   ) -> Result<(), Error>;
-
 
   // * real
 
@@ -325,7 +324,7 @@ impl KwrFormatWrite for FixedFormatWrite {
   fn write_real_value_comment(
     dest: &mut [u8; 70],
     value: f64,
-    mut n_sig_digits: Option<usize>,
+    n_sig_digits: Option<usize>,
     comment: Option<&str>,
   ) -> Result<(), Error> {
     let (v, c) = Self::split_value_comment_mut(dest);
@@ -336,7 +335,7 @@ impl KwrFormatWrite for FixedFormatWrite {
           n_sig_digits -= 1;
           res = write_engineering(&mut v.as_mut_slice(), value, n_sig_digits);
         }
-      },
+      }
       None => {
         let s = format!("{}", value);
         if s.len() < v.len() {
@@ -348,7 +347,10 @@ impl KwrFormatWrite for FixedFormatWrite {
           } else {
             // Convert into a float...
             let s = format!("{:E}", value as f32);
-            assert!(s.len() < v.len(), "Too long float representation for Fixed-format keyword.");
+            assert!(
+              s.len() < v.len(),
+              "Too long float representation for Fixed-format keyword."
+            );
             unsafe { copy_nonoverlapping(s.as_ptr(), v.as_mut_ptr(), s.len()) };
           }
         }
@@ -378,10 +380,10 @@ impl KwrFormatWrite for FixedFormatWrite {
   }
 
   fn write_possibly_long_string_value_and_long_comment<'a, I>(
-    dest: &mut [u8],
-    dest_it: &mut I,
-    value: &str,
-    comment: Option<&str>,
+    _dest: &mut [u8],
+    _dest_it: &mut I,
+    _value: &str,
+    _comment: Option<&str>,
   ) -> Result<(), Error>
   where
     I: Iterator<Item = Result<&'a mut [u8; 80], Error>>,
@@ -390,31 +392,31 @@ impl KwrFormatWrite for FixedFormatWrite {
     unreachable!()
   }
 
-  fn write_long_keyword(dest: &mut [u8; 80], kw: &str) -> Result<(), Error> {
+  fn write_long_keyword(_dest: &mut [u8; 80], _kw: &str) -> Result<(), Error> {
     // Since no long string value possible in 'fixed-format'
     unreachable!()
   }
 
-  fn write_longkw_boolean_value(dest: &mut [u8], value: bool) -> &mut [u8] {
+  fn write_longkw_boolean_value(_dest: &mut [u8], _value: bool) -> &mut [u8] {
     // Since HIERARCH value possible in 'fixed-format'
     unreachable!()
   }
 
-  fn write_longkw_int_value(dest: &mut [u8], value: i64) -> &mut [u8] {
+  fn write_longkw_int_value(_dest: &mut [u8], _value: i64) -> &mut [u8] {
     // Since HIERARCH value possible in 'fixed-format'
     unreachable!()
   }
 
-  fn write_longkw_real_value(dest: &mut [u8], value: f64) -> &mut [u8] {
+  fn write_longkw_real_value(_dest: &mut [u8], _value: f64) -> &mut [u8] {
     // Since HIERARCH value possible in 'fixed-format'
     unreachable!()
   }
 
   fn write_longkw_possibly_long_string_value_and_long_comment<'a, I>(
-    dest: &mut [u8],
-    dest_it: &mut I,
-    value: &str,
-    comment: Option<&str>,
+    _dest: &mut [u8],
+    _dest_it: &mut I,
+    _value: &str,
+    _comment: Option<&str>,
   ) where
     I: Iterator<Item = &'a mut [u8; 80]>,
   {
@@ -522,11 +524,10 @@ impl KwrFormatWrite for FreeFormatWrite {
   ) -> Result<(), Error> {
     let mut vbuff = Vec::with_capacity(20);
     match n_sig_digits {
-      Some(n_sig_digits) => {
-        write_engineering(&mut vbuff, value, n_sig_digits)
-      },
-      None => write!(&mut vbuff, "{}", value)
-    }.unwrap();
+      Some(n_sig_digits) => write_engineering(&mut vbuff, value, n_sig_digits),
+      None => write!(&mut vbuff, "{}", value),
+    }
+    .unwrap();
     unsafe { copy_nonoverlapping(vbuff.as_ptr(), dest.as_mut_ptr(), vbuff.len()) };
     Self::write_comment_if_any(&mut dest[vbuff.len()..], comment)
   }
@@ -541,7 +542,7 @@ impl KwrFormatWrite for FreeFormatWrite {
 
   fn write_possibly_long_string_value_and_long_comment<'a, I>(
     dest: &mut [u8],
-    dest_it: &mut I,
+    _dest_it: &mut I,
     value: &str,
     comment: Option<&str>,
   ) -> Result<(), Error>
@@ -556,7 +557,7 @@ impl KwrFormatWrite for FreeFormatWrite {
       Self::write_string_value_comment_gen(dest, value, comment)
     } else {
       match comment {
-        Some(comment) => {
+        Some(_comment) => {
           // First try to write the value in a  minimum of card, then write comment.
           // Or devide each line by the ratio of the value size over the comment size ?
           todo!()
@@ -569,27 +570,27 @@ impl KwrFormatWrite for FreeFormatWrite {
     }
   }
 
-  fn write_long_keyword(dest: &mut [u8; 80], kw: &str) -> Result<(), Error> {
+  fn write_long_keyword(_dest: &mut [u8; 80], _kw: &str) -> Result<(), Error> {
     todo!()
   }
 
-  fn write_longkw_boolean_value(dest: &mut [u8], value: bool) -> &mut [u8] {
+  fn write_longkw_boolean_value(_dest: &mut [u8], _value: bool) -> &mut [u8] {
     todo!()
   }
 
-  fn write_longkw_int_value(dest: &mut [u8], value: i64) -> &mut [u8] {
+  fn write_longkw_int_value(_dest: &mut [u8], _value: i64) -> &mut [u8] {
     todo!()
   }
 
-  fn write_longkw_real_value(dest: &mut [u8], value: f64) -> &mut [u8] {
+  fn write_longkw_real_value(_dest: &mut [u8], _value: f64) -> &mut [u8] {
     todo!()
   }
 
   fn write_longkw_possibly_long_string_value_and_long_comment<'a, I>(
-    dest: &mut [u8],
-    dest_it: &mut I,
-    value: &str,
-    comment: Option<&str>,
+    _dest: &mut [u8],
+    _dest_it: &mut I,
+    _value: &str,
+    _comment: Option<&str>,
   ) where
     I: Iterator<Item = &'a mut [u8; 80]>,
   {

@@ -116,7 +116,7 @@ impl Visitor for FieldVisitor {
   }
 
   // Provide the number of bits to be read in the n bytes?
-  fn visit_bit_array(self, v: &[u8]) -> Result<Self::Value, Error> {
+  fn visit_bit_array(self, _v: &[u8]) -> Result<Self::Value, Error> {
     // TODO!
     Err(new_unsupported_by_visitor(self.expecting(), "Bit array"))
   }

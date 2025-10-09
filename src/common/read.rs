@@ -5,15 +5,15 @@ use std::{
 };
 
 use crate::error::{
-  Error, new_empty_hierarch_kw_err, new_empty_val_bool_err, new_empty_val_float_err,
+  new_empty_hierarch_kw_err, new_empty_val_bool_err, new_empty_val_float_err,
   new_empty_val_int_err, new_hierarch_kwval_sep_not_found_err, new_invalid_fixed_fmt_bool_val_err,
   new_invalid_fixed_fmt_float_val_err, new_invalid_fixed_fmt_int_val_err,
   new_invalid_free_fmt_bool_val_err, new_invalid_free_fmt_float_val_err,
   new_invalid_free_fmt_int_val_err, new_string_value_closing_not_found_err,
-  new_string_value_opening_not_found_err,
+  new_string_value_opening_not_found_err, Error,
 };
 
-use super::{KW_RANGE, VALUE_INDICATOR, VC_RANGE, VI_RANGE};
+use super::{VALUE_INDICATOR /* KW_RANGE, VC_RANGE, VI_RANGE*/};
 
 /// Keyword Record Format.
 /// Defines the methods to read and write the value and possibly the comment associated to
@@ -186,6 +186,7 @@ pub(crate) const fn bytes2str(bytes: &[u8]) -> &str {
   unsafe { str::from_utf8_unchecked(bytes) }
 }
 
+/*
 pub(crate) fn get_keyword(keyword_record: &[u8; 80]) -> &[u8; 8] {
   let slice = &keyword_record[KW_RANGE];
   unsafe { &*(slice.as_ptr().cast::<[u8; 8]>()) }
@@ -201,6 +202,7 @@ pub(crate) fn get_value_comment(keyword_record: &[u8; 80]) -> &[u8; 70] {
 pub(crate) fn get_left_trimmed_value_comment(keyword_record: &[u8; 80]) -> &[u8] {
   get_value_comment(keyword_record).trim_ascii_start()
 }
+*/
 
 pub(crate) fn is_value_indicator(bytes: &[u8; 2]) -> bool {
   bytes == VALUE_INDICATOR

@@ -1,6 +1,6 @@
 //! Read primitives (or iterator of primitive) from raw bytes.
 
-use std::{mem::size_of, ptr::copy_nonoverlapping};
+use std::ptr::copy_nonoverlapping;
 
 use log::error;
 

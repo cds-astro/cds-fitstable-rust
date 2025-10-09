@@ -4,8 +4,8 @@
 use crate::error::new_unexpected_value;
 use crate::{
   common::{
-    FixedFormat, KwrFormatRead, ValueKwr,
     write::{FixedFormatWrite, KwrFormatWrite},
+    FixedFormat, KwrFormatRead, ValueKwr,
   },
   error::Error,
 };
@@ -28,7 +28,7 @@ impl THeap {
 impl ValueKwr for THeap {
   const KEYWORD: &'static [u8; 8] = b"THEAP   ";
 
-  fn check_value(&self, kwr_value_comment: &[u8; 70]) -> Result<(), Error> {
+  fn check_value(&self, _kwr_value_comment: &[u8; 70]) -> Result<(), Error> {
     unreachable!() // not supposed to be called
   }
 

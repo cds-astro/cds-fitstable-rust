@@ -14,6 +14,7 @@ use crate::{
 };
 
 ///First dimension is the one varying most rapidly.
+#[derive(Debug)]
 pub struct TDimValue(Vec<u16>);
 impl From<Vec<u16>> for TDimValue {
   fn from(value: Vec<u16>) -> Self {
@@ -47,6 +48,7 @@ impl Display for TDimValue {
 }
 
 /// The `TDIMn` keyword.
+#[derive(Debug)]
 pub struct TDim {
   n: u16,
   value: TDimValue,
@@ -75,7 +77,7 @@ impl DynValueKwr for TDim {
     self.n
   }
 
-  fn check_value(&self, kwr_value_comment: &[u8; 70]) -> Result<(), Error> {
+  fn check_value(&self, _kwr_value_comment: &[u8; 70]) -> Result<(), Error> {
     unreachable!() // not supposed to be called
   }
 

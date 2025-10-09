@@ -1,7 +1,7 @@
 use std::{fmt::Display, io::Write};
 
 use crate::{
-  error::{Error, new_io_err, new_unsupported_by_visitor},
+  error::{new_io_err, new_unsupported_by_visitor, Error},
   hdu::xtension::bintable::field::{ComplexF32, ComplexF64},
 };
 
@@ -266,7 +266,7 @@ impl<'a, W: Write> Visitor for &mut CSVVisitor<'a, W> {
   }
 
   // Provide the number of bits to be read in the n bytes?
-  fn visit_bit_array(self, v: &[u8]) -> Result<Self::Value, Error> {
+  fn visit_bit_array(self, _v: &[u8]) -> Result<Self::Value, Error> {
     // TODO!
     Err(new_unsupported_by_visitor(self.expecting(), "Bit array"))
   }

@@ -8,6 +8,7 @@ use crate::{
 };
 
 /// The `TUNITn` keyword.
+#[derive(Debug)]
 pub struct TUnit {
   n: u16,
   // could be replaced by a Unit type
@@ -37,7 +38,7 @@ impl DynValueKwr for TUnit {
     self.n
   }
 
-  fn check_value(&self, kwr_value_comment: &[u8; 70]) -> Result<(), Error> {
+  fn check_value(&self, _kwr_value_comment: &[u8; 70]) -> Result<(), Error> {
     unreachable!() // not supposed to be called
   }
 

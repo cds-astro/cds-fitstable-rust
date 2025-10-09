@@ -1,33 +1,29 @@
-use std::{convert::TryInto, io::Read, str::from_utf8_unchecked};
+use std::{
+  convert::TryInto,
+  io::{Read, Write},
+  str::from_utf8_unchecked,
+};
 
 use log::trace;
 
 use crate::{
   common::{
-    ValueKwr,
     keywords::{simple::Simple, xtension::Xtension},
     read::{FixedFormatRead, KwrFormatRead},
+    ValueKwr, KW_RANGE,
   },
   error::new_unexpected_kw,
-  error::{Error, new_io_err},
+  error::{new_io_err, Error},
   hdu::{
-    HDUType,
-    header::{HDUHeader, Header, builder::HeaderBuilder},
+    header::{builder::HeaderBuilder, HDUHeader, Header},
     primary::header::PrimaryHeader,
     xtension::{
       asciitable::header::AsciiTableHeader, bintable::header::BinTableHeader,
       image::header::ImageHeader, unknown::UnknownXtensionHeader,
     },
+    HDUType,
   },
 };
-
-// Read RawHeader
-// Analyse RawHeader to get at least HDU and DATA size
-// * return HDU type
-// * return Kw_iterator
-
-// FAIRE UN MODUCLE READ
-// READ RAW
 
 /// # Warning
 /// In practise, the type `T` must be either `[u8; 2880]` or `&[u8; 2880]`.
@@ -103,11 +99,11 @@ impl<T: AsRef<[u8]>> RawHeader<T> {
   }
 
   fn check_first_keyword(is_primary: bool, bytes: &[u8]) -> Result<(), Error> {
-    let kw: &[u8; 8] = &bytes[0..8].try_into().unwrap();
+    let kw: &[u8; 8] = &bytes[KW_RANGE].try_into().unwrap();
     if is_primary && kw != Simple::KEYWORD {
-      Err(new_unexpected_kw(kw, Simple::KEYWORD))
+      Err(new_unexpected_kw(Simple::KEYWORD, kw))
     } else if !is_primary && kw != Xtension::KEYWORD {
-      Err(new_unexpected_kw(kw, Xtension::KEYWORD))
+      Err(new_unexpected_kw(Xtension::KEYWORD, kw))
     } else {
       Ok(())
     }
@@ -117,7 +113,7 @@ impl<T: AsRef<[u8]>> RawHeader<T> {
   /// The returned value is in `[0, 36[`.
   fn end_position(chunk2880: &[u8; 2880]) -> Option<usize> {
     for (i, chunk) in chunk2880.chunks(80).enumerate() {
-      trace!("Keyword recrod: {}", unsafe { from_utf8_unchecked(chunk) });
+      trace!("Keyword record: {}", unsafe { from_utf8_unchecked(chunk) });
       if chunk.starts_with(b"END     ") {
         return Some(i);
       }
@@ -127,7 +123,7 @@ impl<T: AsRef<[u8]>> RawHeader<T> {
 
   pub fn hdu_type(&self) -> Result<HDUType, Error> {
     let first_kw = self.kw_records_iter().next().unwrap();
-    let (kw, vi, val) = FixedFormatRead::split_kw_indicator_value(first_kw);
+    let (kw, _, val) = FixedFormatRead::split_kw_indicator_value(first_kw);
     match kw {
       Simple::KEYWORD => Ok(HDUType::Primary),
       Xtension::KEYWORD => Xtension::from_value_comment(val).map(HDUType::Extension),
@@ -142,7 +138,7 @@ impl<T: AsRef<[u8]>> RawHeader<T> {
         .and_then(|h| B::build_primary(h, &mut kw_it).map(HDUHeader::Primary))
     } else {
       let first_kw = kw_it.next().unwrap();
-      let (kw, vi, val) = FixedFormatRead::split_kw_indicator_value(first_kw.1);
+      let (kw, _, val) = FixedFormatRead::split_kw_indicator_value(first_kw.1);
       match kw {
         Xtension::KEYWORD => match Xtension::from_value_comment(val)? {
           Xtension::Image => ImageHeader::from_starting_mandatory_kw_records(
@@ -204,5 +200,12 @@ impl<T: AsRef<[u8]>> RawHeader<T> {
   /// Made to quickly re-write the header if needed (e.g. if we simply sort a file).
   pub fn blocks_iter(&self) -> impl Iterator<Item = &[u8; 2880]> {
     self.blocks.iter().map(|s| s.as_ref().try_into().unwrap())
+  }
+
+  pub fn copy<W: Write>(&self, w: &mut W) -> Result<(), Error> {
+    for block in &self.blocks {
+      w.write_all(block.as_ref()).map_err(new_io_err)?;
+    }
+    Ok(())
   }
 }

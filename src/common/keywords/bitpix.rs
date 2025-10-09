@@ -1,11 +1,9 @@
 //! Defines the `BITPIX` keyword.
 
-use std::io::Write;
-
 use crate::{
   common::{
     write::{FixedFormatWrite, KwrFormatWrite},
-    FixedFormat, KwrFormat, KwrFormatRead, ValueKwr,
+    FixedFormat, KwrFormatRead, ValueKwr,
   },
   error::{new_unexpected_value, new_unexpected_value_list, Error},
 };
@@ -105,7 +103,9 @@ mod tests {
       );
 
       let mut dest2 = vec![[32_u8; 80]; 1];
-      bitpix.write_kw_record(&mut dest2.iter_mut().map(Ok)).unwrap();
+      bitpix
+        .write_kw_record(&mut dest2.iter_mut().map(Ok))
+        .unwrap();
       assert_eq!(
         dest2[0].len(),
         80,

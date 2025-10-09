@@ -1,6 +1,5 @@
 use log::warn;
 
-use crate::hdu::HDUType;
 use crate::{
   common::{
     read::{bytes2str, FreeFormatRead, KwrFormatRead},

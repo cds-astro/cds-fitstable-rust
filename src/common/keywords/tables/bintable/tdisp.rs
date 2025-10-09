@@ -1,19 +1,19 @@
 use std::{
-  fmt::{Display, Formatter, Write},
+  fmt::{Display, Formatter},
   str::FromStr,
 };
 
 use crate::{
   common::{
+    DynValueKwr, FreeFormat,
     read::KwrFormatRead,
     write::{FreeFormatWrite, KwrFormatWrite},
-    DynValueKwr, FreeFormat,
   },
-  error::{new_parse_u16_err, new_unexpected_value, Error},
-  hdu::xtension::bintable::field::Field,
+  error::{Error, new_parse_u16_err, new_unexpected_value},
 };
 
 /// Remainder: display '*****' (`w` times) if width of string representation is larger than `w`.
+#[derive(Debug)]
 pub enum TDispValue {
   // Char format
   A { w: u16 },
@@ -146,6 +146,7 @@ impl Display for TDispValue {
   }
 }
 
+#[derive(Debug)]
 pub struct TDispn {
   n: u16,
   value: TDispValue,

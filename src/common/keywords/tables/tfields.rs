@@ -9,6 +9,7 @@ use crate::{
 
 /// The `TFIELD` keyword.
 /// No need to use u32 or u64 since there is a maximum of 999 columns.
+#[derive(Debug)]
 pub struct TFields(u16);
 
 impl TFields {

@@ -2,13 +2,14 @@
 //! `ASCIITABLE` and `BINTABLE` extensions.
 use crate::{
   common::{
-    write::{FixedFormatWrite, KwrFormatWrite},
     DynValueKwr, FixedFormat, KwrFormatRead,
+    write::{FixedFormatWrite, KwrFormatWrite},
   },
   error::Error,
 };
 
 /// The `TDMINn` keyword.
+#[derive(Debug)]
 pub struct TDMin {
   n: u16,
   value: String,
@@ -37,7 +38,7 @@ impl DynValueKwr for TDMin {
     self.n
   }
 
-  fn check_value(&self, kwr_value_comment: &[u8; 70]) -> Result<(), Error> {
+  fn check_value(&self, _kwr_value_comment: &[u8; 70]) -> Result<(), Error> {
     unreachable!() // not supposed to be called
   }
 
@@ -61,6 +62,7 @@ impl DynValueKwr for TDMin {
 }
 
 /// The `TDMAXn` keyword.
+#[derive(Debug)]
 pub struct TDMax {
   n: u16,
   value: String,
@@ -89,7 +91,7 @@ impl DynValueKwr for TDMax {
     self.n
   }
 
-  fn check_value(&self, kwr_value_comment: &[u8; 70]) -> Result<(), Error> {
+  fn check_value(&self, _kwr_value_comment: &[u8; 70]) -> Result<(), Error> {
     unreachable!() // not supposed to be called
   }
 

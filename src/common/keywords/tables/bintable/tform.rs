@@ -1,5 +1,5 @@
 use std::{
-  fmt::{Display, Formatter, Write},
+  fmt::{Display, Formatter},
   str::FromStr,
 };
 
@@ -13,6 +13,7 @@ use crate::{
 };
 
 /// Repeat count and extra character.
+#[derive(Debug)]
 pub struct RepeatCountAndExtraChar {
   /// Repeat count
   r: Option<u16>,
@@ -57,6 +58,7 @@ impl From<ZeroOrOneRepeatCountAndExtraChar> for RepeatCountAndExtraChar {
 }*/
 
 /// Store `r`, `X`, `nbr`, `a` in `r[PQ]X(nbr)a`.
+#[derive(Debug)]
 pub struct VariableLenghtArrayInfo {
   /// Value is 0 et Some(false), else it is 1.
   r_is_1: Option<bool>,
@@ -213,6 +215,7 @@ impl FromStr for VariableLenghtArrayDataType {
   }
 }
 
+#[derive(Debug)]
 pub enum TFormValue {
   /// Logical (bool)
   L(RepeatCountAndExtraChar),
@@ -375,6 +378,7 @@ impl Display for TFormValue {
   }
 }
 
+#[derive(Debug)]
 pub struct TFormn {
   pub n: u16,
   pub value: TFormValue,

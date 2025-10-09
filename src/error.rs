@@ -183,11 +183,8 @@ pub(crate) fn new_depleted_reader_it() -> Error {
   FitsError::DepletedWriteIterator.into()
 }
 
-pub(crate) fn new_custom_from_str(msg: &str) -> Error {
+pub(crate) fn new_custom<I: Into<String>>(msg: I) -> Error {
   FitsError::Custom { msg: msg.into() }.into()
-}
-pub(crate) fn new_custom(msg: String) -> Error {
-  FitsError::Custom { msg }.into()
 }
 
 #[derive(Error, Debug)]

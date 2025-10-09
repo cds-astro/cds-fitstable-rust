@@ -44,7 +44,7 @@ impl HeaderBuilder for Minimalist {
 
   fn build_bintable<'a, I>(
     header: BinTableHeader,
-    kw_records_it: &mut I,
+    _kw_records_it: &mut I,
   ) -> Result<Self::BinH, Error>
   where
     I: Iterator<Item = (usize, &'a [u8; 80])>,

@@ -1,16 +1,15 @@
 use std::{
   borrow::Cow,
-  intrinsics::copy_nonoverlapping,
   io::Write,
   iter::Peekable,
   num::{ParseFloatError, ParseIntError},
   ops::Range,
+  ptr::copy_nonoverlapping,
 };
 
-use crate::error::new_depleted_reader_it;
 use crate::{
   common::read::bytes2str,
-  error::{Error, new_unexpected_kw, new_value_indicator_not_found},
+  error::{new_depleted_reader_it, new_unexpected_kw, new_value_indicator_not_found, Error},
 };
 
 pub mod header;
@@ -29,11 +28,13 @@ const VALUE_INDICATOR: &[u8; 2] = b"= ";
 const VALUE_COMMENT_SEPARATOR: &[u8; 3] = b" / ";
 
 /// Keyword byte range in a raw keyword record.
-const KW_RANGE: Range<usize> = 0..8;
+pub(crate) const KW_RANGE: Range<usize> = 0..8;
+/*
 /// Value Indicator byte range in a raw keyword record.
-const VI_RANGE: Range<usize> = 8..10;
+pub(crate) const VI_RANGE: Range<usize> = 8..10;
 /// Value plus comment byte range in a raw keyword record.
-const VC_RANGE: Range<usize> = 10..80;
+pub(crate) const VC_RANGE: Range<usize> = 10..80;
+*/
 
 /// A keyword record essentially containing a value.
 /// The comment is not important: it is not parsed, always the same comment is written.
@@ -290,11 +291,11 @@ impl KwrFormatRead for FixedFormat {
   }
 
   fn parse_real_str_value(part_of_kw_record: &[u8]) -> Result<(&[u8], &[u8]), Error> {
-    FixedFormat::parse_real_str_value(part_of_kw_record)
+    FixedFormatRead::parse_real_str_value(part_of_kw_record)
   }
 
   fn new_invalid_real_val_err(err: ParseFloatError, part_of_kw_record: &[u8]) -> Error {
-    FixedFormat::new_invalid_real_val_err(err, part_of_kw_record)
+    FixedFormatRead::new_invalid_real_val_err(err, part_of_kw_record)
   }
 
   fn parse_string_value_no_quote(part_of_kw_record: &[u8]) -> Result<(&str, &[u8]), Error> {
@@ -334,11 +335,11 @@ impl KwrFormatRead for FreeFormat {
   }
 
   fn parse_integer_str_value(part_of_kw_record: &[u8]) -> Result<(&[u8], &[u8]), Error> {
-    FreeFormat::parse_integer_str_value(part_of_kw_record)
+    FreeFormatRead::parse_integer_str_value(part_of_kw_record)
   }
 
   fn new_invalid_int_val_err(err: ParseIntError, part_of_kw_record: &[u8]) -> Error {
-    FreeFormat::new_invalid_int_val_err(err, part_of_kw_record)
+    FreeFormatRead::new_invalid_int_val_err(err, part_of_kw_record)
   }
 
   fn parse_real_value(part_of_kw_record: &[u8]) -> Result<(f64, &[u8]), Error> {

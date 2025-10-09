@@ -1,5 +1,3 @@
-use std::cmp::{max, min};
-
 use log::warn;
 
 #[cfg(feature = "vot")]
@@ -8,6 +6,11 @@ use votable::{
   field::{ArraySize, Precision},
 };
 
+#[cfg(feature = "vot")]
+use crate::common::keywords::tables::bintable::{
+  tdisp::TDispValue,
+  tform::{RepeatCountAndExtraChar, VariableLenghtArrayInfo},
+};
 use crate::{
   common::{
     DynValueKwr, ValueKwr,
@@ -17,12 +20,9 @@ use crate::{
       pgcount::{GCount, PCount},
       tables::{
         bintable::{
-          tdim::{TDim, TDimValue},
-          tdisp::{TDispValue, TDispn},
-          tform::{
-            RepeatCountAndExtraChar, TFormValue, TFormn, VariableLenghtArrayDataType,
-            VariableLenghtArrayInfo,
-          },
+          tdim::TDim,
+          tdisp::TDispn,
+          tform::{TFormValue, TFormn, VariableLenghtArrayDataType},
           theap::THeap,
         },
         tcomm::TComm,
@@ -43,8 +43,7 @@ use crate::{
     HDUType,
     header::Header,
     xtension::bintable::schema::{
-      ArrayParam, HeapArrayParam, HeapArraySchema, ScaleOffset32, ScaleOffset64, Schema,
-      Schema::NullableBooleanArray,
+      ArrayParam, HeapArrayParam, HeapArraySchema, RowSchema, ScaleOffset32, ScaleOffset64, Schema,
     },
   },
 };
@@ -54,7 +53,7 @@ pub const BITPIX: BitPix = BitPix::U8;
 pub const NAXIS: NAxis = NAxis::new(2);
 pub const GCOUNT: GCount = GCount::new(1);
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct BinTableColumnHeader {
   /// Column name
   ttype: Option<TType>,
@@ -655,7 +654,7 @@ impl BinTableColumnHeader {
         1 => Schema::ComplexDouble,
         len => Schema::ComplexDoubleArray(ArrayParam::new(len as usize)),
       },
-      TFormValue::M(rc) => {
+      TFormValue::M(_rc) => {
         // scale + offset only on the real part? Why not scale on modulus and offset on angle?
         todo!()
       }
@@ -826,7 +825,7 @@ impl BinTableHeader {
     self.n_rows() * self.row_byte_size()
   }
 
-  /// Size of the heap, ncluding the size of the gap (if any).
+  /// Size of the heap, including the size of the gap (if any).
   pub fn heap_byte_size(&self) -> usize {
     self.pcount.get()
   }
@@ -906,6 +905,32 @@ impl BinTableHeaderWithColInfo {
     }
   }
 
+  /// Number of leading mandatory keyword records (from `XTENSION`, inclusive, to `TFIELD`, inclusive).
+  pub fn n_kw_records(&self) -> usize {
+    self.mrh.n_kw_records()
+  }
+
+  pub fn n_cols(&self) -> usize {
+    self.mrh.n_cols()
+  }
+
+  pub fn n_rows(&self) -> usize {
+    self.mrh.n_rows()
+  }
+
+  pub fn row_byte_size(&self) -> usize {
+    self.mrh.row_byte_size()
+  }
+
+  pub fn main_table_byte_size(&self) -> usize {
+    self.mrh.main_table_byte_size()
+  }
+
+  /// Size of the heap, ncluding the size of the gap (if any).
+  pub fn heap_byte_size(&self) -> usize {
+    self.mrh.heap_byte_size()
+  }
+
   pub fn table(&self) -> &BinTableHeader {
     &self.mrh
   }
@@ -930,6 +955,24 @@ impl BinTableHeaderWithColInfo {
 
   pub fn cols(&self) -> &[BinTableColumnHeader] {
     self.cols.as_slice()
+  }
+
+  pub fn cols_mut(&mut self) -> &mut [BinTableColumnHeader] {
+    self.cols.as_mut_slice()
+  }
+
+  pub fn buld_row_schema(&self) -> RowSchema {
+    self
+      .cols()
+      .iter()
+      .enumerate()
+      .map(|(i, col_header)| {
+        col_header.schema().expect(&format!(
+          "Unable to create schema for column {}: TFORM probably missing!",
+          i + 1
+        ))
+      })
+      .collect()
   }
 }
 

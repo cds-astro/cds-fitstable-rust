@@ -5,7 +5,7 @@
 use crate::{
   error::Error,
   hdu::{
-    header::{Header, builder::HeaderBuilder},
+    header::{builder::HeaderBuilder, Header},
     primary::header::PrimaryHeader,
     xtension::{
       asciitable::header::AsciiTableHeader,
@@ -32,21 +32,27 @@ impl HeaderBuilder for Bintable {
   type ImgH = ImageHeader;
   type UnkH = UnknownXtensionHeader;
 
+  #[cfg(not(feature = "vot"))]
+  fn build_primary<'a, I>(
+    header: PrimaryHeader,
+    _kw_records_it: &mut I,
+  ) -> Result<Self::PriH, Error>
+  where
+    I: Iterator<Item = (usize, &'a [u8; 80])>,
+  {
+    Ok(header)
+  }
+
+  #[cfg(feature = "vot")]
+
   fn build_primary<'a, I>(header: PrimaryHeader, kw_records_it: &mut I) -> Result<Self::PriH, Error>
   where
     I: Iterator<Item = (usize, &'a [u8; 80])>,
   {
-    #[cfg(not(feature = "vot"))]
-    {
-      Ok(header)
-    }
-    #[cfg(feature = "vot")]
-    {
-      let mut header: PrimaryHeaderWithVOTable = header.into();
-      header
-        .consume_remaining_kw_records(kw_records_it)
-        .map(|()| header)
-    }
+    let mut header: PrimaryHeaderWithVOTable = header.into();
+    header
+      .consume_remaining_kw_records(kw_records_it)
+      .map(|()| header)
   }
 
   fn build_asciitable<'a, I>(

@@ -1,17 +1,19 @@
 #[cfg(feature = "vot")]
-use crate::common::keywords::tables::bintable::vot::{ntable::NTable, votmeta::VOTMeta};
+use crate::common::{
+  keywords::tables::bintable::vot::{ntable::NTable, votmeta::VOTMeta},
+  read::{is_value_indicator, FixedFormatRead, KwrFormatRead},
+};
 use crate::{
   common::{
-    DynValueKwr, ValueKwr,
     keywords::{
       bitpix::BitPix,
       naxis::{NAxis, NAxisn},
       simple::Simple,
     },
-    read::{FixedFormatRead, KwrFormatRead, is_value_indicator},
+    DynValueKwr, ValueKwr,
   },
   error::Error,
-  hdu::{HDUType, header::Header},
+  hdu::{header::Header, HDUType},
 };
 
 pub struct PrimaryHeader {

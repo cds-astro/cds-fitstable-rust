@@ -7,15 +7,14 @@
 
 use std::str::FromStr;
 
+use crate::common::read::bytes2str;
 use crate::{
   common::{
-    DynValueKwr,
+    DynValueKwr, FixedFormat, KwrFormatRead,
     write::{FixedFormatWrite, KwrFormatWrite},
-    FixedFormat, KwrFormatRead,
   },
   error::{Error, new_invalid_free_fmt_float_val_err, new_invalid_free_fmt_int_val_err},
 };
-use crate::common::read::bytes2str;
 
 /// We have to use a enum here instead of always a f64 because of the possible usage of i64 offset
 /// possible larger than +-2^52 (i.e. requiring more bits than the number of bits in a f64 mantissa).
@@ -27,25 +26,25 @@ use crate::common::read::bytes2str;
 pub enum UIF64 {
   U64(u64),
   I64(i64),
-  F64(f64)
+  F64(f64),
 }
 impl UIF64 {
   pub fn is_0(&self) -> bool {
     match self {
-      Self::U64(0) | Self::I64(-0) | Self::F64(0.0) | Self::F64(-0.0)=> true,
-     _ => false,
+      Self::U64(0) | Self::I64(-0) | Self::F64(0.0) => true,
+      _ => false,
     }
   }
   pub fn is_i8_offset(&self) -> bool {
     matches!(self, UIF64::I64(i) if *i == -128_i64)
   }
-  pub fn is_u16_offset(&self)  -> bool{
+  pub fn is_u16_offset(&self) -> bool {
     matches!(self, UIF64::U64(i) if *i == 32768_u64)
   }
-  pub fn is_u32_offset(&self)  -> bool{
+  pub fn is_u32_offset(&self) -> bool {
     matches!(self, UIF64::U64(i) if *i == 2147483648_u64)
   }
-  pub fn is_u64_offset(&self)  -> bool{
+  pub fn is_u64_offset(&self) -> bool {
     matches!(self, UIF64::U64(i) if *i == 9223372036854775808_u64)
   }
   pub fn as_f32(&self) -> f32 {
@@ -68,7 +67,7 @@ impl FromStr for UIF64 {
 
   // We assume the string as already been trimmed.
   fn from_str(s: &str) -> Result<Self, Self::Err> {
-    if s.contains(|c| c == '.' || c == 'e' || c == 'E' ) {
+    if s.contains(|c| c == '.' || c == 'e' || c == 'E') {
       s.parse::<f64>()
         .map(UIF64::F64)
         .map_err(|e| new_invalid_free_fmt_float_val_err(e, s.as_bytes()))
@@ -146,10 +145,9 @@ fn main() {
 }
 */
 
-
-
 /// The `TSCAL` keyword.
 /// To be used for TFORM `B`, `I`, `J`, `K`, `P`, `Q` only.
+#[derive(Debug)]
 pub struct TScal {
   n: u16,
   value: f64,
@@ -178,14 +176,12 @@ impl DynValueKwr for TScal {
     self.n
   }
 
-  fn check_value(&self, kwr_value_comment: &[u8; 70]) -> Result<(), Error> {
+  fn check_value(&self, _kwr_value_comment: &[u8; 70]) -> Result<(), Error> {
     unreachable!() // not supposed to be called
   }
 
   fn from_value_comment(n: u16, kwr_value_comment: &[u8; 70]) -> Result<Self, Error> {
-    FixedFormat::parse_real_value(kwr_value_comment).map(|(val, _comment)| {
-      Self::new(n, val)
-    })
+    FixedFormat::parse_real_value(kwr_value_comment).map(|(val, _comment)| Self::new(n, val))
   }
 
   fn write_kw_record<'a, I>(&self, dest_kwr_it: &mut I) -> Result<(), Error>
@@ -205,6 +201,7 @@ impl DynValueKwr for TScal {
 
 /// The `TZERO` keyword.
 /// To be used for TFORM `B`, `I`, `J`, `K`, `P`, `Q` only.
+#[derive(Debug)]
 pub struct TZero {
   n: u16,
   value: UIF64,
@@ -252,7 +249,7 @@ impl DynValueKwr for TZero {
     self.n
   }
 
-  fn check_value(&self, kwr_value_comment: &[u8; 70]) -> Result<(), Error> {
+  fn check_value(&self, _kwr_value_comment: &[u8; 70]) -> Result<(), Error> {
     unreachable!() // not supposed to be called
   }
 
@@ -280,7 +277,7 @@ impl DynValueKwr for TZero {
         val,
         Some(comment.as_str()),
       ),
-      UIF64::F64(val) =>  FixedFormatWrite::write_real_value_kw_record(
+      UIF64::F64(val) => FixedFormatWrite::write_real_value_kw_record(
         dest_kwr_it,
         &Self::keyword(self.n),
         val,
@@ -288,6 +285,5 @@ impl DynValueKwr for TZero {
         Some(comment.as_str()),
       ),
     }
-
   }
 }

@@ -4,7 +4,7 @@ use crate::{
     FixedFormat, KwrFormatRead, ValueKwr,
     write::{FixedFormatWrite, KwrFormatWrite},
   },
-  error::{Error, new_unexpected_value},
+  error::Error,
 };
 
 /// The `VOTMeta` keyword.

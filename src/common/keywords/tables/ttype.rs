@@ -8,6 +8,7 @@ use crate::{
 };
 
 /// The `TTYPEn` keyword, i.e. column name.
+#[derive(Debug)]
 pub struct TType {
   n: u16,
   value: String,
@@ -36,7 +37,7 @@ impl DynValueKwr for TType {
     self.n
   }
 
-  fn check_value(&self, kwr_value_comment: &[u8; 70]) -> Result<(), Error> {
+  fn check_value(&self, _kwr_value_comment: &[u8; 70]) -> Result<(), Error> {
     unreachable!() // not supposed to be called
   }
 
