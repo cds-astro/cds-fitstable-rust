@@ -118,9 +118,176 @@ reaches **1.2 GB/s**. Those measures were made with a hot disk cache.
 
 Conclusion: with enough CPUs, IOs, in particular the writing speed, seem to be the main limiting factor.
 
+## Examples
+
+### Sort and query 4XMM-DR14
+
+```bash
+# Donwload and uncompress the 4XMM-DR14 catalogue (1.4GB)
+> wget 'https://nxsa.esac.esa.int/catalogues/4xmmdr14_240411.fits.gz'
+> gzip -d 4xmmdr14_240411.fits.gz
+# Look a the RA/DEC column indices
+> time fitstable info 4xmmdr14_240411.fits
+HDU[1]:  BINTABLE  n_cols: 336; n_rows : 1035832
+   #             name  type        unit ucd desc                                                                
+   0            DETID  i64?         --- --- A unique number which identifies each entry (detection) in the catal
+...
+  25               RA   f64         deg --- Corrected Right Ascension of the detection in degrees (J2000) after 
+  26              DEC   f64         deg --- Corrected Declination of the detection in degrees (J2000) after stat
+...
+
+real	0m0,031s
+user	0m0,002s
+sys	0m0,003s
+
+# Sort the file
+> time fitstable sort 4xmmdr14_240411.fits 4xmmdr14_240411.sorted.fits --lon 26 --lat 27 --chunk-size 10485760000
+
+real	0m22,906s
+user	0m1,467s
+sys	0m4,136s
+
+# Create an external HEALPix Index on file (default depth = 9)
+> time fitstable mkidx 4xmmdr14_240411.sorted.fits 4xmmdr14_240411.sorted.hidx.fits --lon 26 --lat 27
+
+real	0m2,343s
+user	0m0,159s
+sys	0m0,942s
+
+# Get all sources in a HEALPix cell 4/1
+> time fitstable qidx 4xmmdr14_240411.sorted.hidx.fits q.fits hpx 4 1
+
+real	0m0,009s
+user	0m0,003s
+sys	0m0,005s
+
+# Look at the file structure to know the number of rows
+# WARNING: so far, reading with STITS is ok, but not with TOPCAT
+# WARNING: due to 'nrows' in FITS-plus VOTable left unchanged.
+> fitstable struct q.fits
+
+HDU[0]:
+ * HEAD starting byte: 0; n_blocks: 1; byte size: 2880
+ * DATA starting byte: 2880; byte size: 88061.
+ * TYPE: PRIMARY
+   + simple: true; naxis: 1; bitpix : 8; dimensions: 88061.
+HDU[1]:
+ * HEAD starting byte: 92160; n_blocks: 35; byte size: 100800
+ * DATA starting byte: 192960; byte size: 47968.
+ * TYPE: BINTABLE
+   + n_cols: 336; n_rows : 32; row_byte_size: 1499; heap_byte_size: 0.
+
+# Perform a cone search query on the file
+> time fitstable qidx 4xmmdr14_240411.sorted.hidx.fits q.fits cone 123.45 +67.89 4.0
+
+real	0m0,024s
+user	0m0,003s
+sys	0m0,009s
+
+> fitstable struct q.fits
+
+HDU[0]:
+ * HEAD starting byte: 0; n_blocks: 1; byte size: 2880
+ * DATA starting byte: 2880; byte size: 88061.
+ * TYPE: PRIMARY
+   + simple: true; naxis: 1; bitpix : 8; dimensions: 88061.
+HDU[1]:
+ * HEAD starting byte: 92160; n_blocks: 35; byte size: 100800
+ * DATA starting byte: 192960; byte size: 3278313.
+ * TYPE: BINTABLE
+```
+
+Remark 1: use `RUST_LOG=debug` to activate loging, e.g.:
+
+```bash
+RUST_LOG=debug fitstable ...
+```
+
+Remark 2: from source code
+
+```bash
+RUST_LOG=debug cargo run --release -- ...
+```
+
+### Sort and query a set of ESO catalogue FITS files
+
+Disclaimer: tests performed on a server with disks accessed through a local network.
+
+```bash
+# Go to https://www.eso.org/qi/ 
+# Look at VMD DR6 info https://www.eso.org/qi/catalog/show/396
+# And donwload all FITS files (login requested) in a 'orgdata' diretory
+# Look a RA/Dec columns indices using
+> fitstable info orgdata/ADP.2022-07-28T13:55:38.537.fits
+
+# Merge and sort all FITS files in a vmc_dr6.fits file
+> time fitstable sort orgdata vmc_dr6.fits --lon 5 --lat 6 --depth 10 --chunk-size 1073741824
+
+real	11m51,598s
+user	10m3,839s
+sys	2m14,942s
+
+# Look at the total number of rows
+> fitstable struct vmc_dr6.fits
+
+HDU[0]:
+ * HEAD starting byte: 0; n_blocks: 12; byte size: 34560
+ * DATA starting byte: 34560; byte size: 0.
+ * TYPE: PRIMARY
+   + simple: true; naxis: 0; bitpix : 8; dimensions: 0.
+HDU[1]:
+ * HEAD starting byte: 34560; n_blocks: 28; byte size: 80640
+ * DATA starting byte: 115200; byte size: 31285155084.
+ * TYPE: BINTABLE
+   + n_cols: 96; n_rows : 70462061; row_byte_size: 444; heap_byte_size: 0.
+
+# Create an HEALPix index
+> fitstable mkidx vmc_dr6.fits vmc_dr6.hidx.fits --lon 5 --lat 6 --depth 9
+
+real	1m39,131s
+user	0m10,111s
+sys	0m16,943s
+
+
+# Perform a positional query around the LMC
+> time ./fitstable qidx vmc_dr6.hidx.fits res.fits cone 80.8942 -69.75 0.1
+
+real	0m0,038s
+user	0m0,014s
+sys	0m0,022s
+
+# Look at the result file, it contains 32454 rows
+> ./fitstable struct res.fits 
+
+HDU[0]:
+ * HEAD starting byte: 0; n_blocks: 12; byte size: 34560
+ * DATA starting byte: 34560; byte size: 0.
+ * TYPE: PRIMARY
+   + simple: true; naxis: 0; bitpix : 8; dimensions: 0.
+HDU[1]:
+ * HEAD starting byte: 34560; n_blocks: 28; byte size: 80640
+ * DATA starting byte: 115200; byte size: 14409576.
+ * TYPE: BINTABLE
+   + n_cols: 96; n_rows : 32454; row_byte_size: 444; heap_byte_size: 0.
+  
+# Bonus: if you install hpx-cli https://github.com/cds-astro/cds-healpix-rust/tree/master/crates/cli
+# you can create a density map from the generated 'vmc_dr6.countmap.fits' file
+hpx map view vmc_dr6.countmap.fits vmc_dr6.png allsky 300
+
+```
+
 ## ToDo
 
-* [ ] add HEALPix sort, index and query commands
+* [X] add HEALPix sort, index and query commands
+
+## Further work
+
+This code could be a base for:
+
+* a new HiPS Catalogue generation tool replacing the Java one
+* a HATS products generator, working on a single machine
+* producing ExXMatch indexes for fast XMatches
+* ...
 
 ## License
 

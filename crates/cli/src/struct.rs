@@ -1,13 +1,13 @@
-use std::{error::Error, fmt::Debug, fs::File, io::BufReader, path::PathBuf};
+use std::{error::Error, fmt::Debug, fs::File, path::PathBuf};
 
 use clap::Args;
 use log::info;
-use memmap2::{Mmap, MmapOptions};
+use memmap2::MmapOptions;
 
 use fitstable::{
-  common::{DynValueKwr, keywords::naxis::NAxisn},
+  common::keywords::naxis::NAxisn,
   hdu::{
-    header::{HDUHeader, builder::r#impl::minimal::Minimalist},
+    header::{builder::r#impl::minimal::Minimalist, HDUHeader},
     primary::header::PrimaryHeader,
     xtension::{
       asciitable::header::AsciiTableHeader, bintable::header::BinTableHeader,

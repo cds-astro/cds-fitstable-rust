@@ -2,34 +2,26 @@ use std::{
   error::Error,
   fmt::Debug,
   fs::File,
-  io::{BufRead, BufWriter},
-  io::{BufReader, Write, stdout},
+  io::BufWriter,
+  io::{stdout, Write},
   path::PathBuf,
   thread::scope,
 };
 
 use clap::Args;
-use crossbeam::channel::{Receiver, Sender, bounded};
+use crossbeam::channel::{bounded, Receiver, Sender};
 use log::{error, info};
-use memmap2::{Advice, Mmap, MmapOptions};
+use memmap2::{Advice, MmapOptions};
 
 use fitstable::{
-  common::{DynValueKwr, keywords::naxis::NAxisn},
   hdu::{
-    header::{HDUHeader, Header, builder::r#impl::bintable::Bintable},
-    primary::header::PrimaryHeader,
-    xtension::{
-      asciitable::header::AsciiTableHeader,
-      bintable::{
-        header::BinTableHeader,
-        read::{
-          deser::sliceheap::DeserializerWithHeap,
-          visitor::csv::{CSVRowVisitor, CSVVisitor},
-        },
-        schema::RowSchema,
+    header::{builder::r#impl::bintable::Bintable, HDUHeader, Header},
+    xtension::bintable::{
+      read::{
+        deser::sliceheap::DeserializerWithHeap,
+        visitor::csv::{CSVRowVisitor, CSVVisitor},
       },
-      image::header::ImageHeader,
-      unknown::UnknownXtensionHeader,
+      schema::RowSchema,
     },
   },
   read::slice::{FitsBytes, HDU},
@@ -136,9 +128,9 @@ fn convert_to_csv<W: Write>(
     data,
   } = hdu;
   match parsed_header {
-    HDUHeader::Primary(h) => Ok(false),
-    HDUHeader::Image(h) => Ok(false),
-    HDUHeader::AsciiTable(h) => todo!(),
+    HDUHeader::Primary(_) => Ok(false),
+    HDUHeader::Image(_) => Ok(false),
+    HDUHeader::AsciiTable(_) => todo!(),
     HDUHeader::BinTable(bintable_header_full) => {
       // Get all variable to know where is and how to interpret the dat
       let table_header = bintable_header_full.table();
@@ -337,6 +329,6 @@ fn convert_to_csv<W: Write>(
       }
       .map(|()| true)
     }
-    HDUHeader::Unknown(h) => Ok(false),
+    HDUHeader::Unknown(_) => Ok(false),
   }
 }

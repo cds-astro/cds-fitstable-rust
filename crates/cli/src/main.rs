@@ -2,7 +2,9 @@ use std::error::Error;
 
 use clap::Parser;
 
-use fitstable_cli::{csv::Csv, head::Head, info::Info, r#struct::Struct};
+use fitstable_cli::{
+  csv::Csv, head::Head, info::Info, mkidx::MkIndex, qidx::QIndex, sort::Sort, r#struct::Struct,
+};
 
 // Avoid musl's default allocator due to lackluster performance
 // https://nickb.dev/blog/default-musl-allocator-considered-harmful-to-performance
@@ -23,9 +25,18 @@ enum Args {
   /// Print tables information (such as column names, units, ...)
   #[clap(name = "info")]
   Info(Info),
-  /// Print found table in CSV.
+  /// Print tables in CSV format.
   #[clap(name = "csv")]
   Csv(Csv),
+  /// Sort a file, or sort and concatenate a set of files, according to HEALPix
+  #[clap(name = "sort")]
+  Sort(Sort),
+  /// Make a positional index for HEALPix sorted files
+  #[clap(name = "mkidx")]
+  MkIndex(MkIndex),
+  /// Query a BINTABLE according to a HEALPix index
+  #[clap(name = "qidx")]
+  QIndex(QIndex),
 }
 
 impl Args {
@@ -35,6 +46,9 @@ impl Args {
       Self::Head(args) => args.exec(),
       Self::Info(args) => args.exec(),
       Self::Csv(args) => args.exec(),
+      Self::Sort(args) => args.exec(),
+      Self::MkIndex(args) => args.exec(),
+      Self::QIndex(args) => args.exec(),
     }
   }
 }

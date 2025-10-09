@@ -17,14 +17,19 @@ bench = false
 test = false
 
 [dependencies]
-fitstable = { package = "fitstable", path = "../..", features = ["vot"] }
+fitstable = { package = "fitstable", path = "../..", features = ["vot", "hpx"] }
+votable = { workspace = true }
+cdshealpix = { workspace = true }
+skyregion = { workspace = true }
+moc = "0.19"
+stc-s = "0.1"
 # Handle command lines
 clap = { version = "4.5", features = ["derive"] }
-# Memmory map a file
-memmap2 = "0.9"
 # Logging
 log = { workspace = true }
 env_logger = "0.11"
+# Memmory map a file
+memmap2 = { workspace = true }
 # Multithreading
 num_cpus = "1.17.0"
 crossbeam = "0.8"

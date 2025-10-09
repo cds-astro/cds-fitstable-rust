@@ -1,18 +1,10 @@
-use std::{error::Error, fmt::Debug, fs::File, io::BufReader, path::PathBuf};
+use std::{error::Error, fmt::Debug, fs::File, path::PathBuf};
 
 use clap::Args;
-use memmap2::{Mmap, MmapOptions};
+use memmap2::MmapOptions;
 
 use fitstable::{
-  common::{DynValueKwr, keywords::naxis::NAxisn},
-  hdu::{
-    header::{HDUHeader, builder::r#impl::minimal::Minimalist},
-    primary::header::PrimaryHeader,
-    xtension::{
-      asciitable::header::AsciiTableHeader, bintable::header::BinTableHeader,
-      image::header::ImageHeader, unknown::UnknownXtensionHeader,
-    },
-  },
+  hdu::header::builder::r#impl::minimal::Minimalist,
   read::slice::{FitsBytes, HDU},
 };
 
