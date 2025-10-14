@@ -61,6 +61,11 @@ It may help us in promoting our work to our financiers.
 License
 -------
 
+So far, we adopt the conservative LGPL license, but hope to change it in favor 
+of a dual Apache/MIT license in the future.
+Please contact us if you wish to use this code.
+
+<!--
 Like most projects in Rust, this project is licensed under either of
 
 * Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
@@ -77,4 +82,11 @@ Contribution
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in this project by you, as defined in the Apache-2.0 license,
 shall be dual licensed as above, without any additional terms or conditions.
+-->
+
+Contribution
+------------
+
+No direct contribution accepted so far.
+
 
