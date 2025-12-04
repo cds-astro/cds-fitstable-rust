@@ -73,7 +73,7 @@ pub fn hcidx(
       assert_eq!(main_table_byte_size, n_rows * row_byte_size);
 
       // * build the table schema
-      let row_schema: RowSchema = bintable_header.buld_row_schema();
+      let row_schema: RowSchema = bintable_header.build_row_schema();
 
       // * get RA and Dec columns info, and ensure they are of type Double (no scale/offset allowed here so far)
       let ra_meta = &row_schema.fields_schemas()[i_lon];
@@ -384,7 +384,7 @@ where
         let bintable_header_starting_byte = hdu.starting_byte;
         let row_byte_size = bintable_header.row_byte_size();
         // * build the table schema
-        let row_schema: RowSchema = bintable_header.buld_row_schema();
+        let row_schema: RowSchema = bintable_header.build_row_schema();
         // * get RA and Dec columns info, and ensure they are of type Double (no scale/offset allowed here so far)
         let lon_meta = &row_schema.fields_schemas()[lon];
         let lat_meta = &row_schema.fields_schemas()[lat];

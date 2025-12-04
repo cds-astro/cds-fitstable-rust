@@ -26,7 +26,7 @@ use crate::{
 use crate::error::new_io_err;
 use cdshealpix::nested::{
   get,
-  map::skymap::CountMapU32,
+  map::skymap::implicit::ImplicitCountMapU32,
   sort::{
     SimpleExtSortParams, hpx_external_sort_stream, hpx_external_sort_with_knowledge,
     hpx_internal_sort,
@@ -146,7 +146,7 @@ pub fn hsort_file(
   assert_eq!(main_table_byte_size, n_rows * row_byte_size);
 
   // * build the table schema
-  let row_schema: RowSchema = bintable_header.buld_row_schema();
+  let row_schema: RowSchema = bintable_header.build_row_schema();
 
   // * get RA and Dec columns info, and ensure they are of type Double (no scale/offset allowed here so far)
   let ra_meta = &row_schema.fields_schemas()[i_ra];
@@ -242,7 +242,7 @@ pub fn hsort_file(
     // - read once to get healpix distribution
     let twice_dd = (29 - depth) << 1;
     debug!("Compute count map...");
-    let count_map = CountMapU32::from_hash_values(
+    let count_map = ImplicitCountMapU32::from_hash_values(
       depth,
       (&bintable_hdu.data()[..main_table_byte_size])
         .chunks(row_byte_size)
@@ -370,7 +370,7 @@ pub fn hsort_files(
   }
 
   // * build the table schema
-  let row_schema: RowSchema = bintable_header.buld_row_schema();
+  let row_schema: RowSchema = bintable_header.build_row_schema();
   // * get RA and Dec columns info, and ensure they are of type Double (no scale/offset allowed here so far)
   let ra_meta = row_schema.fields_schemas()[i_ra].clone();
   let de_meta = row_schema.fields_schemas()[i_dec].clone();
@@ -568,7 +568,7 @@ where
           assert_eq!(main_table_byte_size, n_rows * row_byte_size);
 
           // * build the table schema
-          let row_schema: RowSchema = bintable_header.buld_row_schema();
+          let row_schema: RowSchema = bintable_header.build_row_schema();
           if row_schema != self.row_schema {
             return Some(Err(new_custom(format!(
               "Incompatible BINTABLE HDU schema in file {:?}.",

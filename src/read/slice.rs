@@ -12,7 +12,7 @@ use crate::{
 };
 
 #[cfg(feature = "vot")]
-use votable::{VOTable, VOTableError, impls::mem::InMemTableDataRows, votable::VOTableWrapper};
+use votable::{VOTable, VOTableError, impls::mem::VoidTableDataContent, votable::VOTableWrapper};
 
 /// The full content, i.e. all bytes, of a fits file.
 /// # Lifetime
@@ -113,10 +113,10 @@ impl<'u> HDU<'u, Bintable> {
   }
 
   #[cfg(feature = "vot")]
-  pub fn parse_votable_if_any(&self) -> Option<Result<VOTable<InMemTableDataRows>, VOTableError>> {
+  pub fn parse_votable_if_any(&self) -> Option<Result<VOTable<VoidTableDataContent>, VOTableError>> {
     match &self.parsed_header {
       HDUHeader::Primary(h) if h.is_fits_plus() => Some(
-        VOTableWrapper::<InMemTableDataRows>::from_ivoa_xml_bytes(self.data).map(|w| w.votable),
+        VOTableWrapper::<VoidTableDataContent>::from_ivoa_xml_bytes(self.data).map(|w| w.votable),
       ),
       _ => None,
     }

@@ -413,6 +413,12 @@ impl ScaleOffset32 {
   pub fn new(scale: f32, offset: f32) -> Self {
     Self { scale, offset }
   }
+  pub fn get_scale(&self) -> f32 {
+    self.scale
+  }
+  pub fn get_offset(&self) -> f32 {
+    self.offset
+  }
 }
 
 /// Scale and offset to be used in the transformation:
@@ -427,6 +433,12 @@ impl ScaleOffset64 {
   pub fn new(scale: f64, offset: f64) -> Self {
     Self { scale, offset }
   }
+  pub fn get_scale(&self) -> f64 {
+    self.scale
+  }
+  pub fn get_offset(&self) -> f64 {
+    self.offset
+  }
 }
 
 /// Regular array parameter (only the length so far).
@@ -438,6 +450,7 @@ impl ArrayParam {
   pub fn new(len: usize) -> Self {
     Self { len }
   }
+  pub fn get_len(&self) -> usize { self.len }
   pub fn with_scale_offset_32(self, scale_offset: ScaleOffset32) -> ArrayParamWithScaleOffset32 {
     ArrayParamWithScaleOffset32::new(self, scale_offset)
   }
@@ -464,6 +477,15 @@ impl ArrayParamWithScaleOffset32 {
       scale_offset,
     }
   }
+  pub fn get_len(&self) -> usize {
+    self.array_params.len
+  }
+  pub fn get_scale(&self) -> f32 {
+    self.scale_offset.get_scale()
+  }
+  pub fn get_offset(&self) -> f32 {
+    self.scale_offset.get_offset()
+  }
 }
 impl From<&HeapArrayParamWithScaleOffset32> for ArrayParamWithScaleOffset32 {
   fn from(p: &HeapArrayParamWithScaleOffset32) -> Self {
@@ -483,6 +505,15 @@ impl ArrayParamWithScaleOffset64 {
       array_params,
       scale_offset,
     }
+  }
+  pub fn get_len(&self) -> usize {
+    self.array_params.len
+  }
+  pub fn get_scale(&self) -> f64 {
+    self.scale_offset.get_scale()
+  }
+  pub fn get_offset(&self) -> f64 {
+    self.scale_offset.get_offset()
   }
 }
 impl From<&HeapArrayParamWithScaleOffset64> for ArrayParamWithScaleOffset64 {

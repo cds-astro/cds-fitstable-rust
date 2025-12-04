@@ -16,8 +16,8 @@ members = [
 [workspace.dependencies]
 log = "0.4"
 memmap2 = "0.9"
-votable = { version = "0.6.3" }
-cdshealpix = { git = "https://github.com/cds-astro/cds-healpix-rust", rev = "b241c64" }
+votable = { version = "0.7", features = ["mivot"] }
+cdshealpix = { git = "https://github.com/cds-astro/cds-healpix-rust", rev = "d6290db" }
 skyregion = { git = "https://github.com/cds-astro/cds-skyregion-rust", features = ["rayon"] }
 
 [dependencies]

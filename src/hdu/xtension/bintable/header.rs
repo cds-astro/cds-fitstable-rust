@@ -1,12 +1,6 @@
 use log::warn;
 
 #[cfg(feature = "vot")]
-use votable::{
-  datatype::Datatype,
-  field::{ArraySize, Precision},
-};
-
-#[cfg(feature = "vot")]
 use crate::common::keywords::tables::bintable::{
   tdisp::TDispValue,
   tform::{RepeatCountAndExtraChar, VariableLenghtArrayInfo},
@@ -42,10 +36,20 @@ use crate::{
   hdu::{
     HDUType,
     header::Header,
-    xtension::bintable::schema::{
-      ArrayParam, HeapArrayParam, HeapArraySchema, RowSchema, ScaleOffset32, ScaleOffset64, Schema,
+    xtension::bintable::{
+      read::bytes::{to_i8, to_u16, to_u32, to_u64},
+      schema::{
+        ArrayParam, HeapArrayParam, HeapArraySchema, RowSchema, ScaleOffset32, ScaleOffset64,
+        Schema,
+      },
     },
   },
+};
+#[cfg(feature = "vot")]
+use votable::{
+  Max, Min, Values,
+  datatype::Datatype as VOTDatatype,
+  field::{ArraySize, Field as VOTField, Precision},
 };
 
 pub const XTENSION: Xtension = Xtension::BinTable;
@@ -96,15 +100,271 @@ impl BinTableColumnHeader {
   pub fn description(&self) -> Option<&str> {
     self.tcomm.as_ref().map(|tcomm| tcomm.col_description())
   }
+  pub fn min(&self) -> Option<&str> {
+    self.tdmin.as_ref().map(|tdmin| tdmin.min_value())
+  }
+  pub fn max(&self) -> Option<&str> {
+    self.tdmax.as_ref().map(|tdmax| tdmax.max_value())
+  }
+  pub fn disp(&self) -> Option<&TDispValue> {
+    self.tdisp.as_ref().map(|tdisp| tdisp.data_type())
+  }
 
   // format (tdips)
-  // shape (tdim)
+
+  /// Returns the VOTable arraysize of this field, given the data type length and TDISP
+  #[cfg(feature = "vot")]
+  pub fn to_arraysize(&self, len: usize) -> ArraySize {
+    match &self.tdim {
+      None => ArraySize::Fixed1D { size: len as u32 },
+      Some(tdim) => {
+        assert_eq!(len as u16, tdim.col_nbr());
+        ArraySize::FixedND {
+          sizes: tdim.dimensions().iter().map(|v| *v as u32).collect(),
+        }
+      }
+    }
+  }
+
+  /// Compute the VOTable Field corresponding to this column.
+  /// If no name is define in FITS, use the given column index to build name.
+  #[cfg(feature = "vot")]
+  pub fn to_vot_field(&self, i_col: u16) -> Result<VOTField, Error> {
+    self
+      .schema()
+      .ok_or_else(|| {
+        new_custom(format!(
+          "Not enough information to build filed schema! {:?}",
+          &self
+        ))
+      })
+      .and_then(|schema| self.to_vot_field_with_schema(i_col, &schema))
+  }
+
+  /// Compute the VOTable Field corresponding to this column.
+  /// If no name is define in FITS, use the given column index to build name.
+  /// # Info
+  /// Same as `to_vot_field`, except that the `schema` of the field has already been computed.
+  #[cfg(feature = "vot")]
+  pub fn to_vot_field_with_schema(&self, i_col: u16, schema: &Schema) -> Result<VOTField, Error> {
+    let name = self
+      .colname()
+      .map(String::from)
+      .unwrap_or_else(|| format!("col_{}", i_col));
+    let mut vot_field = match schema {
+      Schema::Empty => Err(new_custom(
+        "Empty FITS field, transform into VOTable PARAM?",
+      )),
+      Schema::NullableBoolean => Ok(VOTField::new(name, VOTDatatype::Logical)),
+      Schema::Bits { n_bits } => Ok(VOTField::new(name, VOTDatatype::Bit).set_arraysize(
+        ArraySize::Fixed1D {
+          size: *n_bits as u32,
+        },
+      )),
+      Schema::Byte => Ok(VOTField::new(name, VOTDatatype::Byte).set_xtype("signed")),
+      Schema::Short => Ok(VOTField::new(name, VOTDatatype::ShortInt)),
+      Schema::Int => Ok(VOTField::new(name, VOTDatatype::Int)),
+      Schema::Long => Ok(VOTField::new(name, VOTDatatype::LongInt)),
+      Schema::NullableByte { null } => Ok(
+        VOTField::new(name, VOTDatatype::Byte)
+          .set_xtype("signed")
+          .set_values(Values::new().set_null(to_i8(*null).to_string())),
+      ),
+      Schema::NullableShort { null } => Ok(
+        VOTField::new(name, VOTDatatype::ShortInt)
+          .set_values(Values::new().set_null(null.to_string())),
+      ),
+      Schema::NullableInt { null } => Ok(
+        VOTField::new(name, VOTDatatype::Int).set_values(Values::new().set_null(null.to_string())),
+      ),
+      Schema::NullableLong { null } => Ok(
+        VOTField::new(name, VOTDatatype::LongInt)
+          .set_values(Values::new().set_null(null.to_string())),
+      ),
+      Schema::UnsignedByte => Ok(VOTField::new(name, VOTDatatype::Byte)),
+      Schema::UnsignedShort => Ok(VOTField::new(name, VOTDatatype::ShortInt).set_xtype("unsigned")),
+      Schema::UnsignedInt => Ok(VOTField::new(name, VOTDatatype::Int).set_xtype("unsigned")),
+      Schema::UnsignedLong => Ok(VOTField::new(name, VOTDatatype::LongInt).set_xtype("unsigned")),
+      Schema::NullableUnsignedByte { null } => Ok(
+        VOTField::new(name, VOTDatatype::Byte).set_values(Values::new().set_null(null.to_string())),
+      ),
+      Schema::NullableUnsignedShort { null } => Ok(
+        VOTField::new(name, VOTDatatype::ShortInt)
+          .set_xtype("unsigned")
+          .set_values(Values::new().set_null(to_u16(*null).to_string())),
+      ),
+      Schema::NullableUnsignedInt { null } => Ok(
+        VOTField::new(name, VOTDatatype::Int)
+          .set_xtype("unsigned")
+          .set_values(Values::new().set_null(to_u32(*null as i32).to_string())),
+      ),
+      Schema::NullableUnsignedLong { null } => Ok(
+        VOTField::new(name, VOTDatatype::LongInt)
+          .set_xtype("unsigned")
+          .set_values(Values::new().set_null(to_u64(*null).to_string())),
+      ),
+      Schema::Float => Ok(VOTField::new(name, VOTDatatype::Float)),
+      Schema::FloatFromFloat(_so) | Schema::FloatFromByte(_so) | Schema::FloatFromShort(_so) => {
+        Ok(VOTField::new(name, VOTDatatype::Float))
+      }
+      Schema::Double => Ok(VOTField::new(name, VOTDatatype::Double)),
+      Schema::DoubleFromDouble(_so) | Schema::DoubleFromInt(_so) | Schema::DoubleFromLong(_so) => {
+        Ok(VOTField::new(name, VOTDatatype::Double))
+      }
+      Schema::ComplexFloat => Ok(VOTField::new(name, VOTDatatype::ComplexFloat)),
+      Schema::ComplexDouble => Ok(VOTField::new(name, VOTDatatype::ComplexDouble)),
+      Schema::AsciiChar => Ok(VOTField::new(name, VOTDatatype::CharASCII)),
+      Schema::NullableBooleanArray(ap) => {
+        Ok(VOTField::new(name, VOTDatatype::Logical).set_arraysize(self.to_arraysize(ap.get_len())))
+      }
+      Schema::ByteArray(ap) => Ok(
+        VOTField::new(name, VOTDatatype::Byte)
+          .set_xtype("signed")
+          .set_arraysize(self.to_arraysize(ap.get_len())),
+      ),
+      Schema::ShortArray(ap) => Ok(
+        VOTField::new(name, VOTDatatype::ShortInt).set_arraysize(self.to_arraysize(ap.get_len())),
+      ),
+      Schema::IntArray(ap) => {
+        Ok(VOTField::new(name, VOTDatatype::Int).set_arraysize(self.to_arraysize(ap.get_len())))
+      }
+      Schema::LongArray(ap) => {
+        Ok(VOTField::new(name, VOTDatatype::LongInt).set_arraysize(self.to_arraysize(ap.get_len())))
+      }
+      Schema::NullableByteArray { null, p } => Ok(
+        VOTField::new(name, VOTDatatype::Byte)
+          .set_values(Values::new().set_null(to_i8(*null).to_string()))
+          .set_xtype("signed")
+          .set_arraysize(self.to_arraysize(p.get_len())),
+      ),
+      Schema::NullableShortArray { null, p } => Ok(
+        VOTField::new(name, VOTDatatype::ShortInt)
+          .set_values(Values::new().set_null(null.to_string()))
+          .set_arraysize(self.to_arraysize(p.get_len())),
+      ),
+      Schema::NullableIntArray { null, p } => Ok(
+        VOTField::new(name, VOTDatatype::Int)
+          .set_values(Values::new().set_null(null.to_string()))
+          .set_arraysize(self.to_arraysize(p.get_len())),
+      ),
+      Schema::NullableLongArray { null, p } => Ok(
+        VOTField::new(name, VOTDatatype::LongInt)
+          .set_values(Values::new().set_null(null.to_string()))
+          .set_arraysize(self.to_arraysize(p.get_len())),
+      ),
+      Schema::UnsignedByteArray(ap) => {
+        Ok(VOTField::new(name, VOTDatatype::Byte).set_arraysize(self.to_arraysize(ap.get_len())))
+      }
+      Schema::UnsignedShortArray(ap) => Ok(
+        VOTField::new(name, VOTDatatype::ShortInt)
+          .set_xtype("unsigned")
+          .set_arraysize(self.to_arraysize(ap.get_len())),
+      ),
+      Schema::UnsignedIntArray(ap) => Ok(
+        VOTField::new(name, VOTDatatype::Int)
+          .set_xtype("unsigned")
+          .set_arraysize(self.to_arraysize(ap.get_len())),
+      ),
+      Schema::UnsignedLongArray(ap) => Ok(
+        VOTField::new(name, VOTDatatype::LongInt)
+          .set_xtype("unsigned")
+          .set_arraysize(self.to_arraysize(ap.get_len())),
+      ),
+      Schema::NullableUnsignedByteArray { null, p } => Ok(
+        VOTField::new(name, VOTDatatype::Byte)
+          .set_values(Values::new().set_null(null.to_string()))
+          .set_arraysize(self.to_arraysize(p.get_len())),
+      ),
+      Schema::NullableUnsignedShortArray { null, p } => Ok(
+        VOTField::new(name, VOTDatatype::ShortInt)
+          .set_values(Values::new().set_null(to_u16(*null).to_string()))
+          .set_xtype("unsigned")
+          .set_arraysize(self.to_arraysize(p.get_len())),
+      ),
+      Schema::NullableUnsignedIntArray { null, p } => Ok(
+        VOTField::new(name, VOTDatatype::Int)
+          .set_values(Values::new().set_null(to_u32(*null).to_string()))
+          .set_xtype("unsigned")
+          .set_arraysize(self.to_arraysize(p.get_len())),
+      ),
+      Schema::NullableUnsignedLongArray { null, p } => Ok(
+        VOTField::new(name, VOTDatatype::LongInt)
+          .set_values(Values::new().set_null(to_u64(*null).to_string()))
+          .set_xtype("unsigned")
+          .set_arraysize(self.to_arraysize(p.get_len())),
+      ),
+      Schema::FloatArray(ap) => {
+        Ok(VOTField::new(name, VOTDatatype::Float).set_arraysize(self.to_arraysize(ap.get_len())))
+      }
+      Schema::FloatArrayFromFloat(apwso)
+      | Schema::FloatArrayFromBytes(apwso)
+      | Schema::FloatArrayFromShort(apwso) => Ok(
+        VOTField::new(name, VOTDatatype::Float).set_arraysize(ArraySize::Fixed1D {
+          size: apwso.get_len() as u32,
+        }),
+      ),
+      Schema::DoubleArray(ap) => {
+        Ok(VOTField::new(name, VOTDatatype::Double).set_arraysize(self.to_arraysize(ap.get_len())))
+      }
+      Schema::DoubleArrayFromDouble(apwso)
+      | Schema::DoubleArrayFromInt(apwso)
+      | Schema::DoubleArrayFromLong(apwso) => Ok(
+        VOTField::new(name, VOTDatatype::Double).set_arraysize(ArraySize::Fixed1D {
+          size: apwso.get_len() as u32,
+        }),
+      ),
+      Schema::ComplexFloatArray(ap) => Ok(
+        VOTField::new(name, VOTDatatype::ComplexFloat)
+          .set_arraysize(self.to_arraysize(ap.get_len())),
+      ),
+      Schema::ComplexDoubleArray(ap) => Ok(
+        VOTField::new(name, VOTDatatype::ComplexDouble)
+          .set_arraysize(self.to_arraysize(ap.get_len())),
+      ),
+      Schema::AsciiString(ap) => Ok(
+        VOTField::new(name, VOTDatatype::CharASCII).set_arraysize(self.to_arraysize(ap.get_len())),
+      ),
+      Schema::HeapArrayPtr32(_has) => todo!(),
+      Schema::HeapArrayPtr64(_has) => todo!(),
+    }?;
+    if let Some(unit) = self.unit() {
+      vot_field.set_unit_by_ref(unit);
+    }
+    if let Some(ucd) = self.ucd() {
+      vot_field.set_ucd_by_ref(ucd);
+    }
+    if let Some(desc) = self.description() {
+      vot_field.set_description_by_ref(desc.into());
+    }
+    if let Some(min) = self.min() {
+      let min = Min::new(min);
+      match &mut vot_field.values {
+        Some(values) => values.set_min_by_ref(min),
+        None => vot_field.set_values_by_ref(Values::new().set_min(min)),
+      }
+    }
+    if let Some(max) = self.max() {
+      let max = Max::new(max);
+      match &mut vot_field.values {
+        Some(values) => values.set_max_by_ref(max),
+        None => vot_field.set_values_by_ref(Values::new().set_max(max)),
+      }
+    }
+    if let Some(disp) = self.disp() {
+      let (w, p) = disp.get_width_and_prec();
+      vot_field.set_width_by_ref(w);
+      if let Some(p) = p {
+        vot_field.set_width_by_ref(p);
+      }
+    }
+    Ok(vot_field)
+  }
 
   /// Replace the empty elements by the ones provided in the given VOTable field.
   /// If the option `overwrite` is set to `true`, elements are overwritten (except the ones defining the
   /// datatype, i.e. TFORM, TDIM, TNULL, TSCAL and TZERO;  and TDISP).
   #[cfg(feature = "vot")]
-  pub fn merge(&mut self, icol: u16, field: &votable::Field, overwrite: bool) {
+  pub fn merge(&mut self, icol: u16, field: &VOTField, overwrite: bool) {
     // Can be used to create a FITS Column header from a VOTable FIELD!
     let n = icol + 1;
     if self.ttype.is_none() || overwrite {
@@ -117,7 +377,7 @@ impl BinTableColumnHeader {
         );
       }
     }
-    // Handels array information
+    // Handles array information
     let compute_size = |elems: &Vec<u32>| elems.iter().fold(1_u32, |acc, n| acc * *n);
     let tdim_value = |elems: &Vec<u32>| {
       TDim::new(
@@ -166,18 +426,18 @@ impl BinTableColumnHeader {
 
       // TODO: Add other ArraySize and set TDIM accordingly!
       let tform = match (&field.datatype, array_type) {
-        (Datatype::Logical, Type::Fixed(r)) => TFormn::new(n, TFormValue::L(r)),
-        (Datatype::Bit, Type::Fixed(r)) => TFormn::new(n, TFormValue::X(r)),
-        (Datatype::Byte, Type::Fixed(r)) => TFormn::new(n, TFormValue::B(r)),
-        (Datatype::ShortInt, Type::Fixed(r)) => TFormn::new(n, TFormValue::I(r)),
-        (Datatype::Int, Type::Fixed(r)) => TFormn::new(n, TFormValue::J(r)),
-        (Datatype::LongInt, Type::Fixed(r)) => TFormn::new(n, TFormValue::K(r)),
-        (Datatype::CharASCII, Type::Fixed(r)) => TFormn::new(n, TFormValue::A(r)),
-        (Datatype::Float, Type::Fixed(r)) => TFormn::new(n, TFormValue::E(r)),
-        (Datatype::Double, Type::Fixed(r)) => TFormn::new(n, TFormValue::D(r)),
-        (Datatype::ComplexFloat, Type::Fixed(r)) => TFormn::new(n, TFormValue::C(r)),
-        (Datatype::ComplexDouble, Type::Fixed(r)) => TFormn::new(n, TFormValue::M(r)),
-        (Datatype::CharUnicode, Type::Fixed(r)) => {
+        (VOTDatatype::Logical, Type::Fixed(r)) => TFormn::new(n, TFormValue::L(r)),
+        (VOTDatatype::Bit, Type::Fixed(r)) => TFormn::new(n, TFormValue::X(r)),
+        (VOTDatatype::Byte, Type::Fixed(r)) => TFormn::new(n, TFormValue::B(r)),
+        (VOTDatatype::ShortInt, Type::Fixed(r)) => TFormn::new(n, TFormValue::I(r)),
+        (VOTDatatype::Int, Type::Fixed(r)) => TFormn::new(n, TFormValue::J(r)),
+        (VOTDatatype::LongInt, Type::Fixed(r)) => TFormn::new(n, TFormValue::K(r)),
+        (VOTDatatype::CharASCII, Type::Fixed(r)) => TFormn::new(n, TFormValue::A(r)),
+        (VOTDatatype::Float, Type::Fixed(r)) => TFormn::new(n, TFormValue::E(r)),
+        (VOTDatatype::Double, Type::Fixed(r)) => TFormn::new(n, TFormValue::D(r)),
+        (VOTDatatype::ComplexFloat, Type::Fixed(r)) => TFormn::new(n, TFormValue::C(r)),
+        (VOTDatatype::ComplexDouble, Type::Fixed(r)) => TFormn::new(n, TFormValue::M(r)),
+        (VOTDatatype::CharUnicode, Type::Fixed(r)) => {
           // Return a result instead?
           warn!("FITS not supposed to support UnicodeChar!");
           TFormn::new(n, TFormValue::A(r))
@@ -187,17 +447,17 @@ impl BinTableColumnHeader {
           TFormValue::Q(VariableLenghtArrayInfo::new(
             None,
             match dt {
-              Datatype::Logical => VariableLenghtArrayDataType::L,
-              Datatype::Bit => todo!(),
-              Datatype::Byte => VariableLenghtArrayDataType::B,
-              Datatype::ShortInt => VariableLenghtArrayDataType::I,
-              Datatype::Int => VariableLenghtArrayDataType::J,
-              Datatype::LongInt => VariableLenghtArrayDataType::K,
-              Datatype::CharASCII => VariableLenghtArrayDataType::A,
-              Datatype::Float => VariableLenghtArrayDataType::E,
-              Datatype::Double => VariableLenghtArrayDataType::D,
-              Datatype::ComplexFloat => VariableLenghtArrayDataType::C,
-              Datatype::ComplexDouble => VariableLenghtArrayDataType::M,
+              VOTDatatype::Logical => VariableLenghtArrayDataType::L,
+              VOTDatatype::Bit => todo!(),
+              VOTDatatype::Byte => VariableLenghtArrayDataType::B,
+              VOTDatatype::ShortInt => VariableLenghtArrayDataType::I,
+              VOTDatatype::Int => VariableLenghtArrayDataType::J,
+              VOTDatatype::LongInt => VariableLenghtArrayDataType::K,
+              VOTDatatype::CharASCII => VariableLenghtArrayDataType::A,
+              VOTDatatype::Float => VariableLenghtArrayDataType::E,
+              VOTDatatype::Double => VariableLenghtArrayDataType::D,
+              VOTDatatype::ComplexFloat => VariableLenghtArrayDataType::C,
+              VOTDatatype::ComplexDouble => VariableLenghtArrayDataType::M,
               _ => todo!(),
             },
             max_len,
@@ -961,7 +1221,7 @@ impl BinTableHeaderWithColInfo {
     self.cols.as_mut_slice()
   }
 
-  pub fn buld_row_schema(&self) -> RowSchema {
+  pub fn build_row_schema(&self) -> RowSchema {
     self
       .cols()
       .iter()

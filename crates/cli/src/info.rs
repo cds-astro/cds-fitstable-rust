@@ -10,7 +10,7 @@ use clap::Args;
 use log::{error, info, warn};
 use memmap2::MmapOptions;
 
-use votable::{TableElem, impls::mem::InMemTableDataRows, VOTable};
+use votable::{TableElem, VOTable, VoidTableDataContent};
 
 use fitstable::{
   hdu::{
@@ -56,10 +56,10 @@ impl Info {
     let bytes = mmap.as_ref();
     let fits = FitsBytes::from_slice(bytes);
     if self.only_vot {
-      if let Some(phd) = fits.new_iterator::<Bintable>().next() {
-        let phd = phd?;
-        if phd.is_fits_plus_primary_hdu() {
-          stdout().write_all(phd.data)?;
+      if let Some(prim_hdu) = fits.new_iterator::<Bintable>().next() {
+        let prim_hdu = prim_hdu?;
+        if prim_hdu.is_fits_plus_primary_hdu() {
+          stdout().write_all(prim_hdu.data)?;
         }
       }
     } else {
@@ -94,7 +94,7 @@ impl Info {
     Ok(())
   }
 
-  fn print_hdu_struct(&self, i_hdu: usize, hdu: HDU<Bintable>, vot: Option<&VOTable<InMemTableDataRows>>) -> Result<(), Box<dyn Error>> {
+  fn print_hdu_struct(&self, i_hdu: usize, hdu: HDU<Bintable>, vot: Option<&VOTable<VoidTableDataContent>>) -> Result<(), Box<dyn Error>> {
     print!("HDU[{}]: ", i_hdu);
     match hdu.parsed_header {
       HDUHeader::Primary(h) => print_primhdu_struct(h, hdu.data, !self.no_vot),
@@ -123,7 +123,7 @@ fn print_imghdu_struct(_header: ImageHeader) -> Result<(), Box<dyn Error>> {
   Ok(())
 }
 
-fn print_bintablehdu_struct(mut header: BinTableHeaderWithColInfo, i_hdu: usize, vot: Option<&VOTable<InMemTableDataRows>>, vot_overwrite: bool) -> Result<(), Box<dyn Error>> {
+fn print_bintablehdu_struct(mut header: BinTableHeaderWithColInfo, i_hdu: usize, vot: Option<&VOTable<VoidTableDataContent>>, vot_overwrite: bool) -> Result<(), Box<dyn Error>> {
   print_hdu_type(
     format!(
       "BINTABLE  n_cols: {}; n_rows : {}",

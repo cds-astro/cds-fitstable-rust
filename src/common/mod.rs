@@ -9,7 +9,7 @@ use std::{
 
 use crate::{
   common::read::bytes2str,
-  error::{new_depleted_reader_it, new_unexpected_kw, new_value_indicator_not_found, Error},
+  error::{Error, new_depleted_reader_it, new_unexpected_kw, new_value_indicator_not_found},
 };
 
 pub mod header;
@@ -263,7 +263,7 @@ pub trait DynValueKwr: Sized {
 /// Keyword Record Format.
 /// Defines the methods to read and write the value and possibly the comment associated to
 /// a keyword of known type in a keyword record.
-trait KwrFormat: KwrFormatRead + KwrFormatWrite {}
+pub trait KwrFormat: KwrFormatRead + KwrFormatWrite {}
 
 // CONTINUE only for long string values!!
 
