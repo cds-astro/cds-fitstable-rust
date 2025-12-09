@@ -164,10 +164,10 @@ impl<'a, W: Write> Visitor for &mut CSVVisitor<'a, W> {
     self
       .write_sep()
       .and_then(|()| {
-        if v != b'"' {
-          self.writer.write_all(&[v])
-        } else {
-          self.writer.write_all(&[b'\'', v, b'\''])
+        match v {
+          b'\0' => Ok(()),
+          b'"' => self.writer.write_all(&[b'\'', v, b'\'']),
+          _ => self.writer.write_all(&[v]),
         }
       })
       .map_err(new_io_err)
@@ -276,7 +276,7 @@ impl<'a, W: Write> Visitor for &mut CSVVisitor<'a, W> {
       .write_sep()
       .and_then(|()| {
         if !v.contains('"') {
-          self.writer.write_all(v.as_bytes())
+          self.writer.write_all(v.trim_end().as_bytes())
         } else {
           //TODO: for better performances (avoiding copies), we should split on '"' and write the
           // various parts
