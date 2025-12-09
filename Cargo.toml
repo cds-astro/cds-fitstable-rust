@@ -17,7 +17,7 @@ members = [
 log = "0.4"
 memmap2 = "0.9"
 votable = { version = "0.7", features = ["mivot"] }
-cdshealpix = { git = "https://github.com/cds-astro/cds-healpix-rust", rev = "d6290db" }
+cdshealpix = { git = "https://github.com/cds-astro/cds-healpix-rust", rev = "f5e85eb" }
 skyregion = { git = "https://github.com/cds-astro/cds-skyregion-rust", features = ["rayon"] }
 
 [dependencies]
