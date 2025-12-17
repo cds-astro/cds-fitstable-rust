@@ -75,6 +75,8 @@ impl ValueKwr for BitPix {
 
 #[cfg(test)]
 mod tests {
+  use std::io::Write;
+
   use super::*;
 
   #[test]

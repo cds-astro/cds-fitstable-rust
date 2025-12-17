@@ -163,11 +163,15 @@ impl<'a, W: Write> Visitor for &mut CSVVisitor<'a, W> {
   fn visit_ascii_char(self, v: u8) -> Result<Self::Value, Error> {
     self
       .write_sep()
-      .and_then(|()| {
-        match v {
-          b'\0' => Ok(()),
-          b'"' => self.writer.write_all(&[b'\'', v, b'\'']),
-          _ => self.writer.write_all(&[v]),
+      .and_then(|()| match v {
+        b'\0' => Ok(()),
+        b'"' => self.writer.write_all(b"\"\"\"\""), // """", see https://www.ietf.org/rfc/rfc4180.txt
+        _ => {
+          if v != self.sep {
+            self.writer.write_all(&[v])
+          } else {
+            self.writer.write_all(&[b'"', v, b'"'])
+          }
         }
       })
       .map_err(new_io_err)
@@ -275,12 +279,11 @@ impl<'a, W: Write> Visitor for &mut CSVVisitor<'a, W> {
     self
       .write_sep()
       .and_then(|()| {
-        if !v.contains('"') {
+        if !(v.contains('"') || v.contains(self.sep as char)) {
           self.writer.write_all(v.trim_end().as_bytes())
         } else {
-          //TODO: for better performances (avoiding copies), we should split on '"' and write the
-          // various parts
-          write!(self.writer, "\"{}\"", v.replace('"', "\\"))
+          // See https://www.ietf.org/rfc/rfc4180.txt : " are replaced by ""
+          write!(self.writer, "\"{}\"", v.replace('"', "\"\""))
         }
       })
       .map_err(new_io_err)
