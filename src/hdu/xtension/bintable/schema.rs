@@ -47,6 +47,16 @@ impl RowSchema {
       field_schema.deserialize(deserializer, field_visitor_provider.field_visitor())
     }))
   }
+
+  /// Remove all 'Schema::Empty' elements
+  pub fn remove_schema_empty(mut self) -> Self {
+    self.fields_schemas = self
+      .fields_schemas
+      .into_iter()
+      .filter(|fs| !matches!(fs.schema, Schema::Empty))
+      .collect();
+    self
+  }
 }
 /// So we can use `collect()` to build a `RowSchema`!
 impl FromIterator<Schema> for RowSchema {
@@ -60,6 +70,14 @@ impl FromIterator<Schema> for RowSchema {
         field_schema
       })
       .collect();
+    Self { fields_schemas }
+  }
+}
+
+/// So we can use `collect()` to build a `RowSchema`!
+impl FromIterator<FieldSchema> for RowSchema {
+  fn from_iter<T: IntoIterator<Item = FieldSchema>>(iter: T) -> Self {
+    let fields_schemas = iter.into_iter().collect();
     Self { fields_schemas }
   }
 }
@@ -450,7 +468,9 @@ impl ArrayParam {
   pub fn new(len: usize) -> Self {
     Self { len }
   }
-  pub fn get_len(&self) -> usize { self.len }
+  pub fn get_len(&self) -> usize {
+    self.len
+  }
   pub fn with_scale_offset_32(self, scale_offset: ScaleOffset32) -> ArrayParamWithScaleOffset32 {
     ArrayParamWithScaleOffset32::new(self, scale_offset)
   }
