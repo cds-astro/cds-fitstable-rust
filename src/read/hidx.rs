@@ -18,10 +18,10 @@ use cdshealpix::nested::{
 use skyregion::{SkyRegion, SkyRegionProcess};
 
 use crate::{
-  common::{keywords::naxis::NAxis2, ValueKwr},
-  error::{new_custom, new_io_err, new_parse_u16_err, Error},
+  common::{ValueKwr, keywords::naxis::NAxis2},
+  error::{Error, new_custom, new_io_err, new_parse_u16_err},
   hdu::{
-    header::{builder::r#impl::bintable::Bintable, HDUHeader},
+    header::{HDUHeader, builder::r#impl::bintable::Bintable},
     xtension::bintable::schema::{RowSchema, Schema},
   },
   read::slice::FitsBytes,
@@ -130,12 +130,14 @@ pub fn hcidx(
             )));
           }
           // Push only the starting byte of the first row having a given cell number.
-          entries.push((icell, byte_offset as u64));
+          if icell > prev_icell || (icell == 0 && entries.is_empty()) {
+            entries.push((icell, byte_offset as u64));
+          }
           byte_offset += row_byte_size;
           irow += 1;
           prev_icell = icell;
         }
-        entries.push((prev_icell, byte_offset as u64));
+        entries.push((prev_icell + 1, byte_offset as u64));
 
         // Write the cumulative map
         let explicit_index = OwnedCIndexExplicit::new_unchecked(depth, entries);
@@ -144,6 +146,7 @@ pub fn hcidx(
           &index_path,
           i_lon,
           i_lat,
+          in_mem_explicit,
           in_file_implicit_over_explicit_ratio,
           explicit_index,
         )?;
@@ -183,6 +186,7 @@ pub fn hcidx(
           &index_path,
           i_lon,
           i_lat,
+          in_mem_explicit,
           in_file_implicit_over_explicit_ratio,
           implicit_index,
         )?;
@@ -197,6 +201,7 @@ fn write_index<H: HCIndex>(
   output: &PathBuf,
   lon: usize,
   lat: usize,
+  in_mem_explicit: bool,
   implicit_over_explicit_ratio: Option<f64>,
   cindex: H,
 ) -> Result<(), Error> {
@@ -206,7 +211,11 @@ fn write_index<H: HCIndex>(
   let file_metadata = input.metadata().ok();
   let best_repr = implicit_over_explicit_ratio
     .map(|ratio| cindex.best_representation(ratio))
-    .unwrap_or(HCIndexShape::Implicit);
+    .unwrap_or(if in_mem_explicit {
+      HCIndexShape::Explicit
+    } else {
+      HCIndexShape::Implicit
+    });
   match best_repr {
     HCIndexShape::Implicit => cindex.to_fits_implicit(
       out_fits_write,

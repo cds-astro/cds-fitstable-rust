@@ -48,6 +48,7 @@ impl RowSchema {
     }))
   }
 
+  /* NOT A GOOD IDEA BECAUSE THEN COLUMN ARE NOT LINKED CORRECTLY
   /// Remove all 'Schema::Empty' elements
   pub fn remove_schema_empty(mut self) -> Self {
     self.fields_schemas = self
@@ -56,7 +57,7 @@ impl RowSchema {
       .filter(|fs| !matches!(fs.schema, Schema::Empty))
       .collect();
     self
-  }
+  }*/
 }
 /// So we can use `collect()` to build a `RowSchema`!
 impl FromIterator<Schema> for RowSchema {
@@ -74,13 +75,14 @@ impl FromIterator<Schema> for RowSchema {
   }
 }
 
+/*
 /// So we can use `collect()` to build a `RowSchema`!
 impl FromIterator<FieldSchema> for RowSchema {
   fn from_iter<T: IntoIterator<Item = FieldSchema>>(iter: T) -> Self {
     let fields_schemas = iter.into_iter().collect();
     Self { fields_schemas }
   }
-}
+}*/
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FieldSchema {
@@ -606,7 +608,7 @@ impl HeapArrayParamWithScaleOffset64 {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Schema {
   // When repeat count = 0
-  Empty,
+  Empty, // (Box<Schema>), // ??
 
   // Bool
   NullableBoolean,
