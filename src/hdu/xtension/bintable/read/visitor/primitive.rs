@@ -89,7 +89,7 @@ primitive_visitor!(i64, "i64", visit_i64);
 primitive_visitor!(f32, "f32", visit_f32);
 primitive_visitor!(f64, "f64", visit_f64);
 
-primitive_visitor!(Option<bool>, "Option<boolean>", visit_opt_bool);
+primitive_visitor!(Option<bool>, "Option<bool>", visit_opt_bool);
 primitive_visitor!(Option<u8>, "Option<u8>", visit_opt_u8);
 primitive_visitor!(Option<u16>, "Option<u16>", visit_opt_u16);
 primitive_visitor!(Option<u32>, "Option<u32>", visit_opt_u32);

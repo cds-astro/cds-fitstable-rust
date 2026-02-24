@@ -4,7 +4,7 @@ use clap::Args;
 
 use fitstable::read::hidx::hcidx;
 
-/// Create an index on an HEALPix NESTED sorted BINTABLE FITS file,
+/// Make an index on an HEALPix NESTED sorted BINTABLE FITS file,
 /// to then quickly retrieve rows in a given HEALPix cell.
 #[derive(Debug, Args)]
 pub struct MkIndex {

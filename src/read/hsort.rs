@@ -171,7 +171,7 @@ pub fn hsort_file(
   bintable_hdu.copy_header(&mut writer)?;
   debug!("BINTABLE header copied");
 
-  // * sort maintable rows
+  // * sort main table rows
   let layer29 = get(29);
   // Position provider
   let hpx29v = move |row_bytes: &Vec<u8>| {

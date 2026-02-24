@@ -44,7 +44,6 @@ impl HeaderBuilder for Bintable {
   }
 
   #[cfg(feature = "vot")]
-
   fn build_primary<'a, I>(header: PrimaryHeader, kw_records_it: &mut I) -> Result<Self::PriH, Error>
   where
     I: Iterator<Item = (usize, &'a [u8; 80])>,

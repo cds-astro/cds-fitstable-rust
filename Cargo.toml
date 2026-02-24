@@ -17,22 +17,27 @@ members = [
 log = "0.4"
 memmap2 = "0.9"
 votable = { version = "0.7", features = ["mivot"] }
-cdshealpix = { git = "https://github.com/cds-astro/cds-healpix-rust", rev = "6c2ab0f" }
-skyregion = { git = "https://github.com/cds-astro/cds-skyregion-rust", features = ["rayon"] }
+# cdshealpix = "0.9.1"
+cdshealpix = { git = "https://github.com/cds-astro/cds-healpix-rust", rev = "81270f5" }
+skyregion = { git = "https://github.com/cds-astro/cds-skyregion-rust", rev = "8f2ee4e", features = ["rayon"] }
+expreval = { git = "https://github.com/cds-astro/cds-expreval-rust", rev = "a666d76" }
 
 [dependencies]
 log = { workspace = true }
 memmap2 = { workspace = true }
 votable = { workspace = true, optional = true }
 cdshealpix = { workspace = true, optional = true }
+expreval = { workspace = true, optional = true }
 skyregion = { workspace = true, optional = true }
 thiserror = "2.0"
 
 
 [features]
 default = ["all"]
-all = ["vot", "hpx"]
+all = ["vot", "hpx", "expreval"]
 # Supports the FITS-plus format (M. Taylors), i.e. VOTable header in the Primary HDU
 vot = ["dep:votable"]
 # Supports HEALPix related functions (sort, index, ...)
 hpx = ["dep:cdshealpix", "dep:skyregion"]
+# Supports expression-evaluation
+expreval = ["dep:expreval"]

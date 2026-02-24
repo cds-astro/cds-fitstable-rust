@@ -27,10 +27,14 @@ impl RowVisitor for CSVRowVisitor {
 pub struct CSVVisitor<'a, W: Write> {
   writer: &'a mut W,
   sep: u8,
+  field_sep: u8,
 }
 impl<'a, W: Write> CSVVisitor<'a, W> {
   pub fn new(writer: &'a mut W) -> Self {
-    Self { writer, sep: b'\n' }
+    Self::new_custom(writer, b',')
+  }
+  pub fn new_custom(writer: &'a mut W, field_sep: u8) -> Self {
+    Self { writer, sep: b'\n', field_sep }
   }
 
   pub fn starts_new_line(&mut self) {
@@ -39,7 +43,7 @@ impl<'a, W: Write> CSVVisitor<'a, W> {
 
   fn write_sep(&mut self) -> Result<(), std::io::Error> {
     let res = self.writer.write_all(&[self.sep]);
-    self.sep = b',';
+    self.sep = self.field_sep;
     res
   }
 

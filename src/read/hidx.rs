@@ -6,7 +6,7 @@ use std::{
   path::PathBuf,
 };
 
-use log::debug;
+use log::{debug, trace};
 use memmap2::{Advice, MmapOptions};
 
 use cdshealpix::nested::{
@@ -156,9 +156,11 @@ pub fn hcidx(
         let mut map: Vec<u64> = Vec::with_capacity(len as usize);
         // Read line by line
         let mut i_row = 0;
+        // Push the starting byte
+        map.push(byte_offset as u64);
         for row in rows {
           let icell = hpx(row);
-          if icell + 1 < map.len() as u64 {
+          if icell < (map.len() - 1) as u64 {
             return Err(new_custom(format!(
               "HEALPix error at row {}: the file seems not to be sorted!",
               i_row
@@ -180,7 +182,7 @@ pub fn hcidx(
         }
 
         // Write the cumulative map
-        let implicit_index = OwnedCIndex::new_unchecked(depth, map.into_boxed_slice());
+        let implicit_index = OwnedCIndex::new_unsafe(depth, map.into_boxed_slice());
         write_index(
           &input,
           &index_path,
@@ -256,7 +258,7 @@ where
   }
 }
 
-fn check_file_exists_and_check_file_len(
+pub fn check_file_exists_and_check_file_len(
   file_name: &String,
   expected_csv_len: u64,
 ) -> Result<(), Error> {
@@ -290,7 +292,7 @@ fn check_file_exists_and_check_file_len(
 struct QIdxProcess<'a, H, T, W>
 where
   H: HCIndex<V = u64>,
-  T: FitsMMappedCIndex<'a, HCIndexType = H> + 'a,
+  T: FitsMMappedCIndex<HCIndexType<'a> = H> + 'a,
   W: Write + Seek,
 {
   fits_idx: &'a T,
@@ -302,7 +304,7 @@ where
 impl<'a, H, T, W> QIdxProcess<'a, H, T, W>
 where
   H: HCIndex<V = u64>,
-  T: FitsMMappedCIndex<'a, HCIndexType = H> + 'a,
+  T: FitsMMappedCIndex<HCIndexType<'a> = H> + 'a,
   W: Write + Seek,
 {
   pub fn new(fits_idx: &'a T, write: W, limit: Option<usize>) -> Self {
@@ -317,7 +319,7 @@ where
 impl<'a, H, T, W> SkyRegionProcess for QIdxProcess<'a, H, T, W>
 where
   H: HCIndex<V = u64>,
-  T: FitsMMappedCIndex<'a, HCIndexType = H> + 'a,
+  T: FitsMMappedCIndex<HCIndexType<'a> = H> + 'a,
   W: Write + Seek,
 {
   type Output = ();
@@ -417,7 +419,14 @@ where
         hdu.copy_header(&mut self.write)?;
         let mut n_data_bytes_written = 0_usize;
         for (range, flag) in region.sorted_hpx_ranges(hci.depth()) {
+          trace!(
+            "Hpx range. Order: {}; Range: {:?}; flag: {}.",
+            hci.depth(),
+            &range,
+            flag
+          );
           let bytes_range = hci.get_with_range_at_index_depth(range);
+          trace!(" * byte range; {:?}", &bytes_range);
           let bytes_range = bytes_range.start as usize..bytes_range.end as usize;
           if flag {
             let n_rows = n_data_bytes_written / row_byte_size;

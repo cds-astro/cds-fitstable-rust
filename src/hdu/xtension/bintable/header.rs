@@ -1221,12 +1221,27 @@ impl BinTableHeaderWithColInfo {
     self.cols.as_mut_slice()
   }
 
+  pub fn build_col_names(&self) -> Vec<String> {
+    self
+      .cols()
+      .iter()
+      .enumerate()
+      .map(|(i, col_header)| {
+        col_header
+          .colname()
+          .map(String::from)
+          .unwrap_or_else(|| format!("col_{}", i))
+      })
+      .collect()
+  }
+
   pub fn build_row_schema(&self) -> RowSchema {
     self
       .cols()
       .iter()
       .enumerate()
       .map(|(i, col_header)| {
+        // TODO: better return a Result than panicking!
         col_header.schema().expect(&format!(
           "Unable to create schema for column {}: TFORM probably missing!",
           i + 1

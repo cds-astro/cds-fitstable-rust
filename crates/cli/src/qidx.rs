@@ -39,7 +39,7 @@ use skyregion::{
 /// Perform a spatial query on a HEALPix NESTED sorted and indexed BINTABLE FITS file,
 #[derive(Debug, Args)]
 pub struct QIndex {
-  /// Path of the FITS file  containing the HEALPix index
+  /// Path of the FITS file containing the HEALPix index
   #[clap(value_name = "FILE")]
   input: PathBuf,
   /// Path of the output FITS file, containing the query result

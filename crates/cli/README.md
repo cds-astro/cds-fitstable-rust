@@ -126,7 +126,6 @@ reaches **1.2 GB/s**. Those measures were made with a hot disk cache.
 
 Conclusion: with enough CPUs, IOs, in particular the writing speed, seem to be the main limiting factor.
 
-
 ### Sort and query 4XMM-DR14
 
 ```bash
@@ -296,6 +295,10 @@ hpx map view vmc_dr6.countmap.fits vmc_dr6.png allsky 300
 
 ```
 
+### `hipsgen-cat` with `fitstable`
+
+See [this specific page](doc/hipsgen.md)
+
 ## ToDo
 
 * [X] add HEALPix sort, index and query commands
@@ -331,7 +334,7 @@ shall be dual licensed as above, without any additional terms or conditions.
 License
 -------
 
-So far, we adopt the conservative GPL license, but hope to change it in favor 
+So far, we adopt the conservative GPL license, but hope to change it in favor
 of a dual Apache/MIT license in the future.
 Please contact us if you wish to use this code.
 

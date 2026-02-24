@@ -12,7 +12,7 @@ pub struct RowSchema {
 }
 impl RowSchema {
   /*
-  /// Returns `true` is both schema have ths ame binary layout, i.e. same number of fields
+  /// Returns `true` is both schema have the same binary layout, i.e. same number of fields
   /// with same datatypes (and same possible OFFSET and SCALE), ...
   pub fn as_same_binary_layout_than(&self, rhs: &RowSchema) -> bool {
     if self.fields_schemas.len() != rhs.fields_schemas.len() {
