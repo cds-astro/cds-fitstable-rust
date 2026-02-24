@@ -1,13 +1,16 @@
 [package]
 name = "fitstable-cli"
-version = "0.1.0"
+version = "0.1.0-beta"
 edition = "2024"
 authors = ["F.-X. Pineau <francois-xavier.pineau@astro.unistra.fr>"]
-description = "Command-line tool for fitstable"
+description = "Command-line tool for fitstable, including hipsgen-cat features"
 license = "GPL"
 readme = "README.md"
 categories = ["command-line-utilities", "science", "data-structures"]
-keywords = ["fits"]
+keywords = ["fits", "hips"]
+documentation = "https://github.com/cds-astro/cds-fitstable-rust/tree/main/crates/cli"
+homepage = "https://github.com/cds-astro/cds-fitstable-rust/tree/main/crates/cli"
+repository = "https://github.com/cds-astro/cds-fitstable-rust/tree/main/crates/cli"
 
 [features]
 default = []
@@ -49,3 +52,26 @@ serde_qs = { version = "1.0", optional = true }
 [target.'cfg(all(target_env = "musl", target_arch = "x86_64"))'.dependencies]
 mimalloc = "0.1.43"
 
+[package.metadata.deb]
+maintainer = "F.-X. Pineau <francois-xavier.pineau@astro.unistra.fr>"
+depends = "$auto"
+section = "utility"
+priority = "optional"
+assets = [
+    ["target/release/fitstable", "usr/bin/fitstable-cli", "755"],
+    ["COPYING", "usr/share/doc/fitstable-cli/", "644"],
+    ["LICENSE-GPL", "usr/share/doc/fitstable-cli/", "644"],
+    ["CHANGELOG.md", "usr/share/doc/fitstable-cli/CHANGELOG", "644"],
+    ["README.md", "usr/share/doc/fitstable-cli/README", "644"],
+    #["FAQ.md", "usr/share/doc/fitstable-cli/FAQ", "644"],
+    ["doc/fitstable.1", "usr/share/man/man1/fitstable-cli.1", "644"],
+    # Similarly for shell completions.
+    #["deployment/deb/fitstable.bash", "usr/share/bash-completion/completions/fitstable", "644"],
+    #["deployment/deb/fitstable.fish", "usr/share/fish/vendor_completions.d/fitstable.fish", "644"],
+    #["deployment/deb/_fitstable", "usr/share/zsh/vendor-completions/", "644"],
+]
+extended-description = """\
+fitstable-cli is a command-line to perform operations on FITS tables like
+HEALPix sorting and indexation for fast positional queries; or the generation of
+HiPS catalogues.
+"""

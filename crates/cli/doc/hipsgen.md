@@ -91,6 +91,7 @@ To get such a file from a single `mytable.fits`, regular FITS file:
 ```bash
 # Look at the indices of the coordinate columns you want to use in the HiPS
 fitstable info mytable.fits
+
 # Sort the table using the indices of the positional columns
 # (for large table, you may adjust the depth (order) and the size of the memory chunk)
 fitstable sort mytable.fits mysortedtable.fits --lon LON_COL_INDEX --lat LAT_COL_INDEX
@@ -101,6 +102,7 @@ To get such a file from a set for FITS file, having the same structure, in a `my
 ```bash
 # Look at the indices of the coordinate columns you want to use in the HiPS
 fitstable info mydir/anyfile.fits
+
 # Concatenate and sort all the files using the indices of the positional columns
 # (for a large output table, you may adjust the depth (order) and the size of the memory chunk)
 fitstable sort mydir mysortedtable.fits --lon LON_COL_INDEX --lat LAT_COL_INDEX
@@ -197,7 +199,7 @@ Options:
   -n, --n1 <N>
           Number of sources at level 1 (if allsky) [default: 3000]
   -r, --r21 <R21>
-          Ratio between the number of source in level 2 and level [default: 3]
+          Ratio between the number of source in level 2 and level 1 [default: 3]
   -m, --n-t <N_T>
           From level 3, number of cell per tile [default: 500]
   -m, --score <SCORE>
@@ -336,8 +338,10 @@ Examples:
 ```bash
 # Get the HiPS properties
 fitstable qhips myhipsdir/ properties
+
 # Get the Allsky.tsv file at order 1:
 fitstable qhips myhipsdir/ allsky 1
+
 # Get the tile 4/15
 fitstable qhips myhipsdir/ tile 4 15
 ```
@@ -354,10 +358,13 @@ From you any directory containing you HiPS(s) directories:
 ```bash
 # Create a `cgi-bin` directory
 mkdir cgi-bin
+
 # Put inside the `fitstable` CLI that you rename as `hips.cgi`
 cp $(which fitstable) cgi-bin/hips.cgi
+
 # Run a local python server with the --cgi option
 python -m http.server --cgi 8000
+
 # Open you favorite web browser with the URL:
 firefox http://localhost:8000/cgi-bin/hips.cgi/path/to/hips/index.html &
 ```
@@ -377,7 +384,7 @@ If everything works correclty you should visualize you HiPS in AladinLite V3 and
 
 ## Publish you HiPS catalogs
 
-TBW!
+TBW
 
 ## Benchmark
 

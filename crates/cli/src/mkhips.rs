@@ -77,7 +77,7 @@ pub struct MkHiPS {
   /// Number of sources at level 1 (if allsky).
   #[clap(short = 'n', long, value_name = "N", default_value_t = 3000)]
   n1: u16, // l1, 48 cells, 62.5 source per cell (if homogeneous and allsky)
-  /// Ratio between the number of source in level 2 and level
+  /// Ratio between the number of source in level 2 and level 1
   #[clap(short = 'r', long, default_value_t = 3)]
   r21: u8, // l2 = 4 * l1 = 12000 => 15_000 src in allsky1 + allsky2
   /// From level 3, number of cell per tile
