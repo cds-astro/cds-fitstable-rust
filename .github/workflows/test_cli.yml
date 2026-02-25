@@ -13,5 +13,5 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Unit cli tests
-      run: cargo test --featrures cgi --package fitstable-cli
+      run: cargo test --features cgi --package fitstable-cli
 

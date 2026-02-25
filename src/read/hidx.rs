@@ -6,8 +6,10 @@ use std::{
   path::PathBuf,
 };
 
-use log::{debug, trace};
-use memmap2::{Advice, MmapOptions};
+use log::{debug, trace, warn};
+#[cfg(not(windows))]
+use memmap2::Advice;
+use memmap2::MmapOptions;
 
 use cdshealpix::nested::{
   get, n_hash,
@@ -18,10 +20,10 @@ use cdshealpix::nested::{
 use skyregion::{SkyRegion, SkyRegionProcess};
 
 use crate::{
-  common::{ValueKwr, keywords::naxis::NAxis2},
-  error::{Error, new_custom, new_io_err, new_parse_u16_err},
+  common::{keywords::naxis::NAxis2, ValueKwr},
+  error::{new_custom, new_io_err, new_parse_u16_err, Error},
   hdu::{
-    header::{HDUHeader, builder::r#impl::bintable::Bintable},
+    header::{builder::r#impl::bintable::Bintable, HDUHeader},
     xtension::bintable::schema::{RowSchema, Schema},
   },
   read::slice::FitsBytes,
@@ -42,7 +44,13 @@ pub fn hcidx(
   // Prepare reading, creating a memory map
   let file = File::open(&input).map_err(new_io_err)?;
   let mmap = unsafe { MmapOptions::new().map(&file) }.map_err(new_io_err)?;
-  mmap.advise(Advice::Sequential).map_err(new_io_err)?;
+  #[cfg(not(windows))]
+  if let Err(e) = mmap.advise(Advice::Sequential) {
+    warn!(
+      "Error advising for sequential read on file '{:?}': {}",
+      file, e
+    );
+  }
 
   // Read as a FITS file, prepare iteration on HDUs
   let bytes = mmap.as_ref();
@@ -363,7 +371,13 @@ where
     let file = File::open(file_name).map_err(new_io_err)?;
     // Prepare reading, creating a memory map
     let mmap = unsafe { MmapOptions::new().map(&file) }.map_err(new_io_err)?;
-    mmap.advise(Advice::Sequential).map_err(new_io_err)?;
+    #[cfg(not(windows))]
+    if let Err(e) = mmap.advise(Advice::Sequential) {
+      warn!(
+        "Error advising for sequential read on file '{:?}': {}",
+        file, e
+      );
+    }
     // Read as a FITS file, prepare iteration on HDUs
     let bytes = mmap.as_ref();
     let fits = FitsBytes::from_slice(bytes);

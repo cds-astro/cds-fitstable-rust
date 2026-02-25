@@ -10,8 +10,10 @@ use std::{
 
 use clap::Args;
 use crossbeam::channel::{bounded, Receiver, Sender};
-use log::{error, info};
-use memmap2::{Advice, MmapOptions};
+use log::{error, info, warn};
+#[cfg(not(windows))]
+use memmap2::Advice;
+use memmap2::MmapOptions;
 
 use fitstable::{
   hdu::{
@@ -59,7 +61,13 @@ impl Csv {
     let file = File::open(&self.input)?;
     let mmap = unsafe { MmapOptions::new().map(&file)? };
     if self.seq {
-      mmap.advise(Advice::Sequential)?;
+      #[cfg(not(windows))]
+      if let Err(e) = mmap.advise(Advice::Sequential) {
+        warn!(
+          "Error advising for sequential read on file '{:?}': {}",
+          file, e
+        );
+      }
     }
     let mut first_table = true;
     for (i, hdu) in FitsBytes::from_slice(mmap.as_ref())

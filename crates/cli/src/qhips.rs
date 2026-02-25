@@ -1,23 +1,25 @@
 use std::{
   error::Error,
   fmt::Debug,
-  fs::{File, metadata, read_to_string},
-  io::{BufReader, Cursor, Read, Write, stdout},
+  fs::{metadata, read_to_string, File},
+  io::{stdout, BufReader, Cursor, Read, Write},
   path::PathBuf,
 };
 
 use clap::{Args, Subcommand};
 #[cfg(feature = "cgi")]
 use http::status::StatusCode as Status;
-use log::error;
-use memmap2::{Advice, MmapOptions};
+use log::{error, warn};
+#[cfg(not(windows))]
+use memmap2::Advice;
+use memmap2::MmapOptions;
 use serde;
 
 use bstree_file_readonly::{
-  Entry,
-  bstree::{SubTreeR, read_meta},
+  bstree::{read_meta, SubTreeR},
   rw::{ReadWrite, U64RW},
   visitors::VisitorExact,
+  Entry,
 };
 use cdshealpix::nested::{
   from_zuniq,
@@ -26,7 +28,7 @@ use cdshealpix::nested::{
 };
 use fitstable::{
   hdu::{
-    header::{HDUHeader, Header, builder::r#impl::bintable::Bintable},
+    header::{builder::r#impl::bintable::Bintable, HDUHeader, Header},
     xtension::bintable::{
       read::{
         deser::sliceheap::DeserializerWithHeap,
@@ -37,7 +39,7 @@ use fitstable::{
   },
   read::slice::{FitsBytes, HDU},
 };
-use votable::{Resource, Table, VOTable, VoidTableDataContent, votable::Version};
+use votable::{votable::Version, Resource, Table, VOTable, VoidTableDataContent};
 
 use crate::mkhips::Properties;
 
@@ -253,7 +255,13 @@ fn print_allsky(mut input: PathBuf, depth: u8, is_cgi: bool) -> Result<(), Box<d
   }
   let file = File::open(&input)?;
   let mmap = unsafe { MmapOptions::new().map(&file)? };
-  mmap.advise(Advice::Sequential)?;
+  #[cfg(not(windows))]
+  if let Err(e) = mmap.advise(Advice::Sequential) {
+    warn!(
+      "Error advising for sequential read on file '{:?}': {}",
+      file, e
+    );
+  }
 
   // Set output
   let mut write = stdout().lock();
@@ -454,7 +462,13 @@ where
   let file = File::open(dir)?;
   // Prepare reading, creating a memory map
   let mmap = unsafe { MmapOptions::new().map(&file) }?;
-  mmap.advise(Advice::Sequential)?;
+  #[cfg(not(windows))]
+  if let Err(e) = mmap.advise(Advice::Sequential) {
+    warn!(
+      "Error advising for sequential read on file '{:?}': {}",
+      file, e
+    );
+  }
   // Read as a FITS file, prepare iteration on HDUs
   let bytes = mmap.as_ref();
   let fits = FitsBytes::from_slice(bytes);

@@ -5,19 +5,21 @@ use std::{
   convert::Infallible,
   convert::TryInto,
   error::Error,
-  fs::{File, read_dir},
+  fs::{read_dir, File},
   io::{BufWriter, Seek, SeekFrom, Write},
   path::PathBuf,
 };
 
 use log::{debug, warn};
-use memmap2::{Advice, Mmap, MmapOptions};
+#[cfg(not(windows))]
+use memmap2::Advice;
+use memmap2::{Mmap, MmapOptions};
 
 use crate::{
-  common::{ValueKwr, keywords::naxis::NAxis2},
+  common::{keywords::naxis::NAxis2, ValueKwr},
   error::new_custom,
   hdu::{
-    header::{HDUHeader, builder::r#impl::bintable::Bintable},
+    header::{builder::r#impl::bintable::Bintable, HDUHeader},
     xtension::bintable::schema::{RowSchema, Schema},
   },
   read::slice::FitsBytes,
@@ -28,8 +30,8 @@ use cdshealpix::nested::{
   get,
   map::skymap::implicit::ImplicitCountMapU32,
   sort::{
-    SimpleExtSortParams, hpx_external_sort_stream, hpx_external_sort_with_knowledge,
-    hpx_internal_sort,
+    hpx_external_sort_stream, hpx_external_sort_with_knowledge, hpx_internal_sort,
+    SimpleExtSortParams,
   },
 };
 
@@ -106,7 +108,13 @@ pub fn hsort_file(
 
   // Prepare reading, creating a memory map
   let mmap = unsafe { MmapOptions::new().map(&file)? };
-  mmap.advise(Advice::Sequential)?;
+  #[cfg(not(windows))]
+  if let Err(e) = mmap.advise(Advice::Sequential) {
+    warn!(
+      "Error advising for sequential read on file '{:?}': {}",
+      file, e
+    );
+  }
 
   // Read as a FITS file, prepare iteration on HDUs
   let bytes = mmap.as_ref();
@@ -327,7 +335,13 @@ pub fn hsort_files(
   // Prepare reading, creating a memory map
   let first_file = File::open(&first_file)?;
   let mmap = unsafe { MmapOptions::new().map(&first_file)? };
-  mmap.advise(Advice::Sequential)?;
+  #[cfg(not(windows))]
+  if let Err(e) = mmap.advise(Advice::Sequential) {
+    warn!(
+      "Error advising for sequential read on file '{:?}': {}",
+      first_file, e
+    );
+  }
 
   // Read as a FITS file, prepare iteration on HDUs
   let bytes = mmap.as_ref();
@@ -509,6 +523,7 @@ where
             Ok(mmap) => mmap,
             Err(e) => return Some(Err(e)),
           };
+          #[cfg(not(windows))]
           if let Err(e) = mmap.advise(Advice::Sequential) {
             warn!(
               "Error advising for sequential read on file '{:?}': {}",
