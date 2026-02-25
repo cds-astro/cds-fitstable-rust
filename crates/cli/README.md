@@ -17,8 +17,69 @@ The motivations for the cli are:
 * to have the equivalent of the command `fold -80 myfile.fits | more` without the binary data
 * to have a quick tool converting possible large FITS files (especially when dealing with the ingestion of large table,
   such as ESO tables, in VizieR)
+* to create HEALPix sorted and indexed FITS file for:
+    + fast positional queries (especially with `qat2s`)
+    + on-the-fly HATS products generation
+    + source to build HiPS catalogues
+
+## `hipsgen-cat` with `fitstable`
+
+See [this specific page](doc/hipsgen.md)
 
 ## Install
+
+### From pypi for python users
+
+fitstable-cli is available in [pypi](https://pypi.org/project/fitstable-cli),
+you can thus install the `fitstable` executable using `pip`:
+```bash
+pip install -U fitstable-cli
+fitstable --help
+```
+
+### Debian package
+
+Download the last `fitstable-cli_vxx_yyy.deb` corresponding to your architecture
+(`x86_64_musl` has the most chances to fit your needs)
+from the [github release page](https://github.com/cds-astro/cds-fitstable-rust/releases).
+
+Install the `.deb` by clicking on it or using the command line:
+```bash
+sudo dpkg -i fitstable-cli_vxx_yyy.deb
+sudo apt-get install -f
+```
+
+Then you can use the tool:
+```bash
+fitstable-cli
+man fitstable-cli
+```
+
+You can uninstall using, e.g.:
+```bash
+sudo dpkg -r $(dpkg -f fitstable-cli_vxx_yyy.deb Package)
+```
+
+WARNING: using this method, the command line name is `fitstable-cli` instead of `fitstable` due to a conflict with an existing debian `fitstable` package.
+
+
+### Pre-compile binaries for MacOS, Linux and Windows
+
+Download the last `fitstable-cli-vxx_yyy.tar.gz` corresponding to your architecture
+from the [github release page](https://github.com/cds-astro/cds-fitstable-rust/releases).
+You probably want ot use:
+* Linux: `fitstable-cli-vxx-x86_64-unknown-linux-musl.tar.gz`
+* MacOS: `fitstable-cli-vxx-x86_64-apple-darwin.tar.gz`
+* Windows: `fitstable-cli-vxx-windows.zip`
+
+WARNING: for linux, use [`musl`](https://en.wikipedia.org/wiki/Musl) instead of `gnu` (high chances of uncompatibility in the latter case)
+
+The tar contains a single executable binary file.
+```bash
+tar xzvf fitstable-cli-vxx-yyy.tar.gz
+./fitstable
+```
+
 
 ### From source code
 
@@ -49,7 +110,7 @@ cargo install --path crates/cli
 ```bash
 > fitstable
 
-Command-line tool for fitstable
+Command-line tool for fitstable, including hipsgen-cat features
 
 Usage: fitstable <COMMAND>
 
@@ -60,14 +121,19 @@ Commands:
   csv     Print tables in CSV format
   sort    Sort a file, or sort and concatenate a set of files, according to HEALPix
   mkidx   Make a positional index for HEALPix sorted files
-  qidx    Query a BINTABLE according to a HEALPix index
+  qidx    Query a BINTABLE using to a HEALPix index
+  mkhips  Create a HiPS catalogue from a HEALPix sorted and index BINTABLE
+  qhips   Query a HiPS catalogue
   help    Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help     Print help
   -V, --version  Print version
+```
 
+You can use the `--help` option in any sub-command, e.g.: 
 
+```bash
 >  fitstable csv --help
 
 Print found table in CSV
@@ -294,10 +360,6 @@ HDU[1]:
 hpx map view vmc_dr6.countmap.fits vmc_dr6.png allsky 300
 
 ```
-
-### `hipsgen-cat` with `fitstable`
-
-See [this specific page](doc/hipsgen.md)
 
 ## ToDo
 

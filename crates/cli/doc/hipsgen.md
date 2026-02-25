@@ -62,23 +62,85 @@ For an example of deep sources in a small fraction of the sky, see, e.g., the Vi
 ## Install
 
 To build, query, and serve a HiPS catalogue from a FITS file, you should only need the `fitstable` command-line tool.
-To build the tool from the source code on Linux of macOS:
+
+### From pypi for python users
+
+`fitstable-cli` is available in [pypi](https://pypi.org/project/fitstable-cli),
+you can thus install the `fitstable` executable using `pip`:
+```bash
+pip install -U fitstable-cli
+fitstable --help
+```
+
+### Debian package
+
+Download the last `fitstable-cli_vxx_yyy.deb` corresponding to your architecture
+(`x86_64_musl` has the most chances to fit your needs)
+from the [github release page](https://github.com/cds-astro/cds-fitstable-rust/releases).
+
+Install the `.deb` by clicking on it or using the command line:
+```bash
+sudo dpkg -i fitstable-cli_vxx_yyy.deb
+sudo apt-get install -f
+```
+
+Then you can use the tool:
+```bash
+fitstable-cli
+man fitstable-cli
+```
+
+You can uninstall using, e.g.:
+```bash
+sudo dpkg -r $(dpkg -f fitstable-cli_vxx_yyy.deb Package)
+```
+
+WARNING: using this method, the command line name is `fitstable-cli` instead of `fitstable` due to a conflict with an existing debian `fitstable` package.
+
+
+### Pre-compile binaries for MacOS, Linux and Windows
+
+Download the last `fitstable-cli-vxx_yyy.tar.gz` corresponding to your architecture
+from the [github release page](https://github.com/cds-astro/cds-fitstable-rust/releases).
+You probably want ot use:
+* Linux: `fitstable-cli-vxx-x86_64-unknown-linux-musl.tar.gz`
+* MacOS: `fitstable-cli-vxx-x86_64-apple-darwin.tar.gz`
+* Windows: `fitstable-cli-vxx-windows.zip`
+
+WARNING: for linux, use [`musl`](https://en.wikipedia.org/wiki/Musl) instead of `gnu` (high chances of uncompatibility in the latter case)
+
+The tar contains a single executable binary file.
+```bash
+tar xzvf fitstable-cli-vxx-yyy.tar.gz
+./fitstable
+```
+
+### From source code
+
+To build the tool from the source code on Linux or macOS:
 
 ```bash
 # Install Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+# Or Update it (if already installed)
+rustup update
+# or follow the instructions here at https://rust-lang.org/tools/install/
 
 # Clone the "fitstable" repository
 git clone https://github.com/cds-astro/cds-fitstable-rust.git
+
 # Go to the downloaded directory
 cd cds-fitstable-rust
+
 # Compile and install the tool in your environment
 # * use the "cgi" feature if you want to serve the hips-catalogue
 cargo install --features cgi --path cracle/cli
+
 # Possibly check the CLI destination
 which fitstable
 ```
 
-## Prerequisite: HEALPix sorted and indexed FITS(+) file
+## Prerequisite: HEALPix sorted and indexed FITS(-plus) file
 
 The table to be transformed must be a single, HEALPix sorted and indexed, BINTABLE FITQ file.
 To benefit from rich metadata, we specifically advice the usage of
@@ -108,13 +170,13 @@ fitstable info mydir/anyfile.fits
 fitstable sort mydir mysortedtable.fits --lon LON_COL_INDEX --lat LAT_COL_INDEX
 ```
 
-Create a Cumulative HEALPix index on the HEALPix ordered rows:
+Then, create a Cumulative HEALPix index on the HEALPix ordered rows:
 
 ```bash
 fitstable mkidx mysortedtable.fits mysortedtable.hidx.fits --lon LON_COL_INDEX --lat LAT_COL_INDEX
 ```
 
-Not relevant here, but now you can now perform efficient positional queries on the (possibly very large) FITS file,
+Not relevant here, but you can now perform efficient positional queries on the (possibly very large) FITS file,
 see `fitstable qidx --help`, e.g.:
 
 ```bash
@@ -137,12 +199,12 @@ fitstable mkhips mysortedtable.hidx.fits myhipsdir
 WARNING: the input file is the HEALPix cumulative index file. It contains, in its FITS keywors, the name of the
 indexed file together with the indices of the positional columns use for the HEALPix sorting (and indexaxtion).
 
-### Advanced (score, properties, options explained! RUSTLOG, ...)
+### Advanced (score, properties, other options, RUSTLOG, ...)
 
 #### Log messages
 
-For debugging, or to see the progress, the user may adapt the logging level with the `RUST_LOG` variable,
-more details [here](https://docs.rs/env_logger/latest/env_logger/#enabling-logging), e.g.:
+For debugging purposes or to monitor process progress, the logging level can be adjusted using the `RUST_LOG`
+environment variable (more details [here](https://docs.rs/env_logger/latest/env_logger/#enabling-logging)), e.g.:
 
  ```bash
  RUST_LOG=trace fitstable mkhips mysortedtable.hidx.fits myhipsdir
@@ -150,13 +212,15 @@ more details [here](https://docs.rs/env_logger/latest/env_logger/#enabling-loggi
 
 #### Using a score
 
-You may use a score to control which sources appear first in the HiPS hierarchy.
-You may use either an existing column or an expression. The most common case is to show the brightest sources first,
-i.e. sources with the smallest magnitudes. We therefore chose to display first the sources having **the smallest score
-**.
-We rely on the [expreval](https://github.com/cds-astro/cds-expreval-rust) crate for expression evaluation.
-Among the available functions, `cavg` computes the mean value of several columns and is compatible with partially filled
-columns. Here an example:
+A score can be used to control which sources appear first in the HiPS hierarchy.
+It may be defined using either an existing column or an expression.
+The most common use case is to display the brightest sources first, i.e., those with the smallest magnitudes.
+Accordingly, the sources with **the smallest score** are displayed first.
+
+
+Expression evaluation is performed using the [expreval](https://github.com/cds-astro/cds-expreval-rust) crate.
+Among the available functions, `cavg` computes the mean value of multiple columns and supports partially populated columns.
+An example is shown below:
 
  ```bash
  RUST_LOG=debug fitstable mkhips --score 'cavg(Jmag1,Hmag,Kmag)' mysortedtable.hidx.fits myhipsdir
@@ -165,7 +229,7 @@ columns. Here an example:
 #### Adding `properties` on the command line
 
 Instead of editing manually some properties of the generated `properties.toml` file, you can set up them from
-the command line. Here is a complete example used for a CDS table:
+the command line. Here is an example used for a CDS table:
 
 ```bash
 RUST_LOG=debug fitstable mkhips --score 'cavg(mag1,mag2,mag3,mag4,mag5,mag6,mag7)' \
@@ -183,7 +247,7 @@ RUST_LOG=debug fitstable mkhips --score 'cavg(mag1,mag2,mag3,mag4,mag5,mag6,mag7
 
 #### Usage
 
-Here the detailed `usage` of `fitstable mkhips`:
+Bellow, the detailed `usage` of `fitstable mkhips`:
 
 ```bash
 > fitstable mkhips --help
