@@ -1,8 +1,8 @@
 use std::{
   error::Error,
   fmt::Debug,
-  fs::{metadata, read_to_string, File},
-  io::{stdout, BufReader, Cursor, Read, Write},
+  fs::{File, metadata, read_to_string},
+  io::{BufReader, Cursor, Read, Write, stdout},
   path::PathBuf,
 };
 
@@ -16,10 +16,10 @@ use memmap2::MmapOptions;
 use serde;
 
 use bstree_file_readonly::{
-  bstree::{read_meta, SubTreeR},
+  Entry,
+  bstree::{SubTreeR, read_meta},
   rw::{ReadWrite, U64RW},
   visitors::VisitorExact,
-  Entry,
 };
 use cdshealpix::nested::{
   from_zuniq,
@@ -28,7 +28,7 @@ use cdshealpix::nested::{
 };
 use fitstable::{
   hdu::{
-    header::{builder::r#impl::bintable::Bintable, HDUHeader, Header},
+    header::{HDUHeader, Header, builder::r#impl::bintable::Bintable},
     xtension::bintable::{
       read::{
         deser::sliceheap::DeserializerWithHeap,
@@ -39,7 +39,7 @@ use fitstable::{
   },
   read::slice::{FitsBytes, HDU},
 };
-use votable::{votable::Version, Resource, Table, VOTable, VoidTableDataContent};
+use votable::{Resource, Table, VOTable, VoidTableDataContent, votable::Version};
 
 use crate::mkhips::Properties;
 
@@ -540,7 +540,13 @@ fn print_landing_page(is_cgi: bool) -> Result<(), Box<dyn Error>> {
     <body></body>
 
     <script type="text/javascript">
-        buildLandingPage();
+      let root = new URL(window.location.href).pathname;
+      if (root.endsWith("/") || root.endsWith("index.html")) {
+        root = root.substring(0, root.lastIndexOf("/", root.length) + 1);
+      } else {
+        root = root + '/'
+      }
+      buildLandingPage({url: root});
     </script>
 </html>
     "#;

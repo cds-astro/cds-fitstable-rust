@@ -153,14 +153,14 @@ fn args_from_cgi_path_info(
       let (dir, action) = path.rsplit_once('/').unwrap_or_else(|| ("", path));
       let dir = dir.strip_prefix('/').unwrap_or(dir);
       match action {
-        "index.html" | "info" => Ok(QHips::new(dir, Action::IndexHTML)),
-        "properties" => Ok(QHips::new(dir, Action::Properties)),
+        "" | "index.html" | "info" => Ok(QHips::new(dir, Action::IndexHTML)),
+        "Properties" | "properties" => Ok(QHips::new(dir, Action::Properties)),
         "Metadata.xml" | "metadata.xml" => Ok(QHips::new(dir, Action::Metadata)),
         "Moc.fits" | "moc.fits" => Ok(QHips::new(dir, Action::Moc)),
-        "tiles.csv" => Ok(QHips::new(dir, Action::TileList)), // Not in the standard
+        "Tiles.csv" | "tiles.csv" => Ok(QHips::new(dir, Action::TileList)), // Not in the standard
         "Allsky1.tsv" | "allsky1.tsv" => Ok(QHips::new(dir, Action::Allsky { depth: 1 })),
         "Allsky2.tsv" | "allsky2.tsv" => Ok(QHips::new(dir, Action::Allsky { depth: 2 })),
-        "Allsky.tsv" => {
+        "Allsky.tsv" | "allsky.tsv" => {
           let (dir, norder) = dir.rsplit_once('/').unwrap_or_else(|| ("", dir));
           parse_depth(norder).map(|depth| QHips::new(dir, Action::Allsky { depth }))
         }
@@ -182,9 +182,11 @@ fn args_from_cgi_path_info(
           parse_depth(norder).map(|depth| QHips::new(dir, Action::Tile { depth, hash }))
         }
         unknown => {
-          let error_msg = format!("Action \"{}\" not recognized.", unknown);
+          /*let error_msg = format!("Action \"{}\" not recognized.", unknown);
           println!("Status: {}\n\n{}", Status::BAD_REQUEST, error_msg);
-          Err(error_msg.into())
+          Err(error_msg.into())*/
+          let dir = format!("{}/{}", dir, unknown);
+          Ok(QHips::new(&dir, Action::IndexHTML))
         }
       }
     }

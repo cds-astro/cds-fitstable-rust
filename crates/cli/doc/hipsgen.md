@@ -67,6 +67,7 @@ To build, query, and serve a HiPS catalogue from a FITS file, you should only ne
 
 `fitstable-cli` is available in [pypi](https://pypi.org/project/fitstable-cli),
 you can thus install the `fitstable` executable using `pip`:
+
 ```bash
 pip install -U fitstable-cli
 fitstable --help
@@ -79,37 +80,43 @@ Download the last `fitstable-cli_vxx_yyy.deb` corresponding to your architecture
 from the [github release page](https://github.com/cds-astro/cds-fitstable-rust/releases).
 
 Install the `.deb` by clicking on it or using the command line:
+
 ```bash
 sudo dpkg -i fitstable-cli_vxx_yyy.deb
 sudo apt-get install -f
 ```
 
 Then you can use the tool:
+
 ```bash
 fitstable-cli
 man fitstable-cli
 ```
 
 You can uninstall using, e.g.:
+
 ```bash
 sudo dpkg -r $(dpkg -f fitstable-cli_vxx_yyy.deb Package)
 ```
 
-WARNING: using this method, the command line name is `fitstable-cli` instead of `fitstable` due to a conflict with an existing debian `fitstable` package.
-
+WARNING: using this method, the command line name is `fitstable-cli` instead of `fitstable` due to a conflict with an
+existing debian `fitstable` package.
 
 ### Pre-compile binaries for MacOS, Linux and Windows
 
 Download the last `fitstable-cli-vxx_yyy.tar.gz` corresponding to your architecture
 from the [github release page](https://github.com/cds-astro/cds-fitstable-rust/releases).
 You probably want ot use:
+
 * Linux: `fitstable-cli-vxx-x86_64-unknown-linux-musl.tar.gz`
 * MacOS: `fitstable-cli-vxx-x86_64-apple-darwin.tar.gz`
 * Windows: `fitstable-cli-vxx-windows.zip`
 
-WARNING: for linux, use [`musl`](https://en.wikipedia.org/wiki/Musl) instead of `gnu` (high chances of uncompatibility in the latter case)
+WARNING: for linux, use [`musl`](https://en.wikipedia.org/wiki/Musl) instead of `gnu` (high chances of uncompatibility
+in the latter case)
 
 The tar contains a single executable binary file.
+
 ```bash
 tar xzvf fitstable-cli-vxx-yyy.tar.gz
 ./fitstable
@@ -148,7 +155,7 @@ the [FITS-plus](https://www.star.bris.ac.uk/mbt/stilts/sun256/fitsPlus.html) for
 see [TOPCAT](https://www.star.bris.ac.uk/mbt/topcat/sun253/outFits.html)/[STILTS](https://www.star.bris.ac.uk/~mbt/stilts/)
 possible outputs.
 
-To get such a file from a single `mytable.fits`, regular FITS file:
+To sorted a single -- `mytable.fits` -- regular FITS file:
 
 ```bash
 # Look at the indices of the coordinate columns you want to use in the HiPS
@@ -159,7 +166,7 @@ fitstable info mytable.fits
 fitstable sort mytable.fits mysortedtable.fits --lon LON_COL_INDEX --lat LAT_COL_INDEX
 ```
 
-To get such a file from a set for FITS file, having the same structure, in a `mydir` directory:
+To concatenate and sort a set of FITS files -- having the same BINTABLE schema -- in a `mydir` directory:
 
 ```bash
 # Look at the indices of the coordinate columns you want to use in the HiPS
@@ -170,7 +177,7 @@ fitstable info mydir/anyfile.fits
 fitstable sort mydir mysortedtable.fits --lon LON_COL_INDEX --lat LAT_COL_INDEX
 ```
 
-Then, create a Cumulative HEALPix index on the HEALPix ordered rows:
+Then, to create a Cumulative HEALPix index on the HEALPix sorted FITS file:
 
 ```bash
 fitstable mkidx mysortedtable.fits mysortedtable.hidx.fits --lon LON_COL_INDEX --lat LAT_COL_INDEX
@@ -197,7 +204,8 @@ fitstable mkhips mysortedtable.hidx.fits myhipsdir
 ```
 
 WARNING: the input file is the HEALPix cumulative index file. It contains, in its FITS keywors, the name of the
-indexed file together with the indices of the positional columns use for the HEALPix sorting (and indexaxtion).
+indexed file together with the indices of the positional columns use for the HEALPix sorting (and indexation).
+Look at the list of FITS keywords using, e.g., `fitstable head mysortedtable.hidx.fits`.
 
 ### Advanced (score, properties, other options, RUSTLOG, ...)
 
@@ -217,9 +225,9 @@ It may be defined using either an existing column or an expression.
 The most common use case is to display the brightest sources first, i.e., those with the smallest magnitudes.
 Accordingly, the sources with **the smallest score** are displayed first.
 
-
 Expression evaluation is performed using the [expreval](https://github.com/cds-astro/cds-expreval-rust) crate.
-Among the available functions, `cavg` computes the mean value of multiple columns and supports partially populated columns.
+Among the available functions, `cavg` computes the mean value of multiple columns and supports partially populated
+columns.
 An example is shown below:
 
  ```bash
@@ -318,7 +326,7 @@ Options:
           Print help
 ```
 
-## Details on HiPS catalogue output files
+## Details on HiPS catalogue output files (the intermediary representation)
 
 Here the typical content of the HiPS output file:
 
@@ -453,6 +461,46 @@ TBW
 ## Benchmark
 
 TBW
+
+## Remarks
+
+### Number of copies of the dataset
+
+Starting from a (set of) unsorted FITS file(s), the full process will generate 3 copies of the entire dataset,
+with two copies existing simultaneously:
+
+* the sorting process creates temporary files (1st copy), which are only removed once the sorted file (2nd copy)
+  has been fully written, meaning two copies exist simultaneously;
+* the sorted file (2nd copy) is required to generate the HiPS representation (3rd copy) and is not automatically
+  deleted;
+  therefore, again, two copies coexist at the same time.
+
+At CDS, the sorted file is used in other services. It is not a useless intermediary product and it replaces the
+original,
+unsorted (set of) file(s).
+
+### `cgi` versus persistent application
+
+To serve a limited number of HiPS catalogues, a persistent application would allow for faster access to data tiles:
+
+* no need to launch a new process (~1ms)
+* FITS metadata could be kept in memory, without having to parse it for each tile access
+* ...
+
+But:
+
+* we are serving more than 30000 HiPS catalogues, possibly representing a lot of metadata to be kept in memory;
+* the CPU cost for handling a new process is much lower that a tile access since the latter requires to open 3 distinct
+  files, to parse metadata, to read data with possible seek access, and to convert binary data to ASCII:
+    + open and query the tile statistics BSTree file
+    + open and read the HEALPix cumulative index file associated to the tile layer file
+    + open and read the tile data
+    + convert the data in ASCII
+* no database is used (no need to open connexions, ...)
+* `cgi` are robust:
+    + one process by query
+    + if a process fails or contains a memory leaks, it has no impact on other queries
+    + in worst case, a process can be killed, with an impact on a single query
 
 ## Alternative tools
 
