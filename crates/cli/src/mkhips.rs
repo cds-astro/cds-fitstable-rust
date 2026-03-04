@@ -5,7 +5,7 @@
 //! * n2 = 4 * n1 (because 4x more cells at level 2 than at level 1)
 //! * n1 + n2 = 15000
 //! * => n1 = 3000 and n2 = 12000
-//! If VizieR tables where all alsky, more than 90% of the table would only need allsky 1 and 2.
+//! If VizieR tables where all allsky, more than 90% of the table would only need allsky 1 and 2.
 
 // For qhips, keep a file with the indices of the columns to be kept by default.
 
@@ -29,10 +29,10 @@ use memmap2::MmapOptions;
 use serde::{Deserialize, Serialize};
 
 use bstree_file_readonly::{
-  IdType, IdVal, ValType,
   cliargs::{memsize::MemSizeArgs, mkargs::MkAlgoArgs},
   mk::BSTreeFileBuilder,
   rw::U64RW,
+  IdType, IdVal, ValType,
 };
 use cdshealpix::{
   n_hash,
@@ -43,9 +43,9 @@ use cdshealpix::{
   },
 };
 use fitstable::{
-  common::{ValueKwr, keywords::naxis::NAxis2},
+  common::{keywords::naxis::NAxis2, ValueKwr},
   hdu::{
-    header::{HDUHeader, builder::r#impl::bintable::Bintable},
+    header::{builder::r#impl::bintable::Bintable, HDUHeader},
     xtension::bintable::{
       read::expreval::{ExprEvalRow, TableSchema},
       schema::{FieldSchema, RowSchema, Schema},
@@ -55,8 +55,8 @@ use fitstable::{
 };
 use moc::{
   moc::{
-    CellMOCIterator, RangeMOCIntoIterator, RangeMOCIterator,
-    builder::maxdepth_range::RangeMocBuilder, range::RangeMOC,
+    builder::maxdepth_range::RangeMocBuilder, range::RangeMOC, CellMOCIterator,
+    RangeMOCIntoIterator, RangeMOCIterator,
   },
   qty::Hpx,
 };
@@ -83,8 +83,8 @@ pub struct MkHiPS {
   /// From level 3, number of cell per tile
   #[clap(short = 'm', long, default_value_t = 500)]
   n_tot: u16,
-  /// Score, if any: sources with the highest score appear first in the hierarchy.
-  #[clap(short = 'm', long, allow_hyphen_values = true)]
+  /// Score, if any: sources with the lower score appear first in the hierarchy.
+  #[clap(short = 's', long, allow_hyphen_values = true)]
   score: Option<String>,
   #[command(flatten)]
   /// Set properties
@@ -95,10 +95,10 @@ impl MkHiPS {
   pub fn exec(self) -> Result<(), Box<dyn Error>> {
     let idx_file = self.input.clone();
     info!("Open index file...");
-    match FITSCIndex::from_fits_file(idx_file).map_err(|e| format!("{}", e))? {
-      FITSCIndex::ImplicitU64(hci) => self.exec_gen(&hci),
-      FITSCIndex::ExplicitU32U64(hci) => self.exec_gen(&hci),
-      FITSCIndex::ExplicitU64U64(hci) => self.exec_gen(&hci),
+    match FITSCIndex::from_fits_file(idx_file.clone()).map_err(|e| format!("{}", e))? {
+      FITSCIndex::ImplicitU64(hci) => self.exec_gen(idx_file, &hci),
+      FITSCIndex::ExplicitU32U64(hci) => self.exec_gen(idx_file, &hci),
+      FITSCIndex::ExplicitU64U64(hci) => self.exec_gen(idx_file, &hci),
       _ => Err(
         String::from("Wrong data type in the FITS Healpix Cumulative Index type. Expected: u64.")
           .into(),
@@ -111,7 +111,7 @@ impl MkHiPS {
   }
 
   /// Returns the total number of non-emtpy tiles
-  pub fn exec_gen<'a, H, T>(mut self, hcidx: &'a T) -> Result<usize, Box<dyn Error>>
+  pub fn exec_gen<'a, H, T>(mut self, mut hcidx_path: PathBuf, hcidx: &'a T) -> Result<usize, Box<dyn Error>>
   where
     H: HCIndex<V = u64>,
     T: FitsMMappedCIndex<HCIndexType<'a> = H> + 'a,
@@ -123,7 +123,9 @@ impl MkHiPS {
     let expected_file_len = hcidx
       .get_indexed_file_len()
       .ok_or_else(|| String::from("No file length found in the FITS HCI file."))?;
-    check_file_exists_and_check_file_len(file_name, expected_file_len)?;
+    hcidx_path.set_file_name(file_name);
+    let data_file = hcidx_path;
+    check_file_exists_and_check_file_len(&data_file.as_path().to_string_lossy().to_string(), expected_file_len)?;
     let lon = hcidx
       .get_indexed_colname_lon()
       .ok_or_else(|| String::from("No longitude column index found in the FITS HCI file."))
@@ -153,7 +155,7 @@ impl MkHiPS {
 
     info!("Load indexed file data...");
     let file =
-      File::open(file_name).map_err(|e| format!("Error opening file '{}': {:?}", file_name, e))?;
+      File::open(data_file).map_err(|e| format!("Error opening file '{}': {:?}", file_name, e))?;
     // Prepare reading, creating a memory map
     let mmap =
       unsafe { MmapOptions::new().map(&file) }.map_err(|e| format!("Mmap error: {:?}", e))?;
@@ -294,8 +296,8 @@ impl MkHiPS {
           .clone()
           .map(|expr| {
             expr_table_schema.compile_f64_expr(expr) // .map(|f| {
-            // Box::new(f) as Box<dyn for<'b> Fn(&ExprEvalRow<'b>) -> f64 + Sync + Send + 'b>
-            //})
+                                                     // Box::new(f) as Box<dyn for<'b> Fn(&ExprEvalRow<'b>) -> f64 + Sync + Send + 'b>
+                                                     //})
           })
           .transpose()?;
 
@@ -1003,7 +1005,9 @@ where
   fn recno_range(&self, depth: u8, hash: u64, mut conservative_recnos: Range<u64>) -> Range<u64> {
     trace!(
       "Method 'recno_range'. depth: {}; hash: {}; recnos: {:?}",
-      depth, hash, &conservative_recnos
+      depth,
+      hash,
+      &conservative_recnos
     );
     let Range { start, end } = self.hcidx.get_cell(depth, hash);
     let recnos = (start - self.data_starting_byte) / self.row_byte_size
@@ -1243,7 +1247,8 @@ impl Layer1and2 {
     if input.nrows <= (3 * algo.n1) / 2 {
       trace!(
         "All sources in level1 ({} < 1.5 * {})",
-        input.nrows, algo.n1
+        input.nrows,
+        algo.n1
       );
       // If nrows <= 1.5 * n1 => build layer 1 only
       for (hpx29, row) in input.all_rows_with_hpx29() {
@@ -1256,7 +1261,8 @@ impl Layer1and2 {
     } else if input.nrows <= (3 * algo.n12) / 2 {
       trace!(
         "All sources in level either 1 or 2 ({} < 1.5 * {})",
-        input.nrows, algo.n12
+        input.nrows,
+        algo.n12
       );
       let mut layer2 = Layer1or2::<193>::new(2, algo, input)?;
 
@@ -1302,7 +1308,9 @@ impl Layer1and2 {
     } else {
       trace!(
         "Number of sources in layer 1: {}; layer 2 {}. Number tot: {}",
-        algo.n1, algo.n2, input.nrows
+        algo.n1,
+        algo.n2,
+        input.nrows
       );
       let mut layer2 = Layer1or2::<193>::new(2, algo, input)?;
       let mut layer3 = LayerExpl::new(3, algo, input)?;
@@ -1329,7 +1337,10 @@ impl Layer1and2 {
         recno_cursors.end = recnos.end;
         trace!(
           "Chunk allsky number {}, recnos: {:?}; recno_cursor: {:?}; h3_recnos: {:?}",
-          i12, &recnos, &recno_cursors, &h3_recnos
+          i12,
+          &recnos,
+          &recno_cursors,
+          &h3_recnos
         );
 
         let selected_recno = input.recno_having_highest_score(recnos.clone());
