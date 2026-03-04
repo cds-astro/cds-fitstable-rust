@@ -11,7 +11,7 @@ Generate `HiPS` catalogues compatible with the IVOA [HiPS](https://www.ivoa.net/
 pip install -U fitstable-cli
 ```
 
-2 - For a relatively small FITS files, download [this bash script](resources/hipsgen.bash) and run it with 4 arguments:
+2 - For a relatively small FITS files, download [this bash script](https://github.com/cds-astro/cds-fitstable-rust/blob/main/crates/cli/resources/hipsgen.bash) and run it with 4 arguments:
 ```bash
 ./hipsgen.bash bintable.fits 1 2 hips
 ```
