@@ -1,4 +1,4 @@
-use log::{error, warn};
+use log::warn;
 
 #[cfg(feature = "vot")]
 use crate::common::keywords::tables::bintable::{
@@ -1324,6 +1324,23 @@ impl Header for BinTableHeaderWithColInfo {
         }
         [b'T', b'U', b'C', b'D', nbr @ ..] => {
           if let Some(n) = get_n(nbr) {
+            self
+              .check_n(n)
+              .and_then(|()| TUCD::from_value_comment(n, kw_value_comment))
+              .map(|kwo| self.cols[(n - 1) as usize].tucd.replace(kwo))?;
+          }
+        }
+        [b'U', b'C', b'D', nbr @ ..] => {
+          // UCD__XX, à la VizieR...
+          let mut s = 0;
+          for c in nbr[0..].iter() {
+            if *c == b'_' {
+              s += 1;
+            } else {
+              break;
+            }
+          }
+          if let Some(n) = get_n(&nbr[s..]) {
             self
               .check_n(n)
               .and_then(|()| TUCD::from_value_comment(n, kw_value_comment))
