@@ -48,7 +48,7 @@ ${sb}${su}Examples:${eu}${eb}
    ./$(basename ${0}) --log warn  --score "cavg(Jmag,Hmag,Kmag)" table.fits 1 2 table.hips
    ./$(basename ${0}) table.fits 1 2 table.hips \\
      --log trace --no-clean \\
-     --score 'cavg(\${Jmag},\${Hmag},\${Kmag})' \\
+     --score 'Gmag!=Gmag?25:Gmag' \\
      --publisher-id ivo://CDS \\
      --obs-ack "Project of institute XXX, funded by YYY"
 EOF
