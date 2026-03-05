@@ -7,24 +7,32 @@ Generate `HiPS` catalogues compatible with the IVOA [HiPS](https://www.ivoa.net/
 ## Quick start
 
 1 - Install the `fitstable` command line tool from [pypi](https://pypi.org/project/fitstable-cli/):
+
 ```bash
 pip install -U fitstable-cli
 ```
 
-2 - For a relatively small FITS files, download [this bash script](https://github.com/cds-astro/cds-fitstable-rust/blob/main/crates/cli/resources/hipsgen.bash) and run it with 4 arguments:
+2 - For a relatively small FITS files,
+download [this bash script](https://raw.githubusercontent.com/cds-astro/cds-fitstable-rust/refs/heads/main/crates/cli/resources/hipsgen.bash)
+and run it with 4 arguments:
+
 ```bash
 ./hipsgen.bash bintable.fits 1 2 hips
 ```
+
 with:
+
 * `bintable.fits`: input binary table FITS file
 * `1`: RA column number in `bintable.fits`
 * `2`: Dec column number in `bintable.fits`
 * `hips`: output directory receiving the generated HiPS files.
 
 To find the column number, you can look at the list your FITS columns using:
+
 ```bash
 fitstable info bintable.fits
 ```
+
 WARNING: the colum number correspond to the column index `+1`.
 
 ## Install
@@ -487,12 +495,12 @@ In hindsight, the tool has not been completely satisfactory because:
 
 * external users are not able to efficiently deal with large tables;
 * the HEALPix order of the deepest tiles is limited to 11 or 12
-  + hence, it is not suited for deep fields
+    + hence, it is not suited for deep fields
 * the number of possible input parameters is overly complex (it was exploratory);
 * the algorithm is not naturally able to deal with data for which no score is defined
-  + hence it is quite hard to build the HiPS of all VizieR tables
+    + hence it is quite hard to build the HiPS of all VizieR tables
 * the algorithm relies on a global density map with a smoothing function
-  + but once we start zooming in, the density over different regions does not really matter anymore
+    + but once we start zooming in, the density over different regions does not really matter anymore
 * at CDS, a HiPS catalogue is made of a few indexed binary files, and tiles are built on the fly by a Tomcat servlet;
   whereas external users are forced to use the HiPS view, possibly containing millions of tiny TSV files
 * ...
@@ -511,11 +519,11 @@ The new version of `hipsgen-cat` uses a slightly different approach:
   (In the Java version, in case of failure when building the HiPS, the full data set had to be sorted again)
 * For the `allsky` (order 1 and 2) products (containing `n1` and `n2` sources, respectively), we aim to show a
   source distribution matching the global density distribution of sources in the whole table. However:
-  + the Java version uses a density map and a user-chosen function to determine the number of sources in order-3
-    cells used to build both order-1 and order-2 allsky products;
-  + the Rust version simply use regular sampling of the HEALPix-sorted rows with chunks of size `(n1+2)/nrows`:
-    - the middle row of a chunk is taken if no score is defined;
-    - otherwise, the row of the chunk with the highest score in chosen.
+    + the Java version uses a density map and a user-chosen function to determine the number of sources in order-3
+      cells used to build both order-1 and order-2 allsky products;
+    + the Rust version simply use regular sampling of the HEALPix-sorted rows with chunks of size `(n1+2)/nrows`:
+        - the middle row of a chunk is taken if no score is defined;
+        - otherwise, the row of the chunk with the highest score in chosen.
 * From depth 3 onward, a constant number of row per tile is used. Nevertheless, the chunk strategy is applied
   building when building each tile in order to preserve the representation of the total density of sources in the cell.
 * The Rust version of the tool temporarily keeps in memory the list of the rows selected in the various layers, so that
