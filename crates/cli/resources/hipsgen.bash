@@ -60,33 +60,29 @@ POSITIONAL_ARGS=()
 # * Action
 HELP="false"  # -h, --help
 # * Algo options
-N1=""
-R2=""
-NT=""
-SCORE=""
-OTHER=()
+OPTS=()
 LOG="off"
 CLEAN="true"
 
 while [[ $# -gt 0 ]]; do
   case $1 in
     -n|--n1)
-      N1="--n1 $2"
+      OPTS+=(-n $2)
       shift # past argument
       shift # past value
       ;;
     -r|--r21)
-      R2="--r21 $2"
+      OPTS+=(-r $2)
       shift # past argument
       shift # past value
       ;;
     -m|--nt)
-      NT="-m $2"
+      OPTS+=(-m $2)
       shift # past argument
       shift # past value
       ;;
     -s|--score)
-      SCORE="--score $2"
+      OPTS+=(--score "$2")
       shift # past argument
       shift # past value
       ;;
@@ -104,7 +100,7 @@ while [[ $# -gt 0 ]]; do
       shift # past argument
       ;;
    -*|--*)
-      OTHER+=($1 "$2")
+      OPTS+=($1 "$2")
       shift # past argument
       shift # past value
       ;;
@@ -196,8 +192,8 @@ RUST_LOG=${LOG} fitstable mkidx ${SORTED} ${HCIDX} --lon ${RA} --lat ${DEC}
 HIPSDIR="${OUTPUT}/compact"
 [[ -d "${HIPSDIR}" ]] && { yesno_exit "Dir ${HIPSDIR} already exists. Files will be overwritten and then the full directory will be removed!. Continue?"; }
 echo "Build HIPS intermediary (compact) representation..."
-echo "> RUST_LOG=${LOG} fitstable mkhips ${N1} ${R2} ${NT} ${SCORE} $(printf '%q ' "${OTHER[@]}") ${HCIDX} ${HIPSDIR}"
-RUST_LOG=${LOG} fitstable mkhips ${N1} ${R2} ${NT} ${SCORE} "${OTHER[@]}" ${HCIDX} ${HIPSDIR}
+echo "> RUST_LOG=${LOG} fitstable mkhips $(printf '%q ' "${OPTS[@]}") ${HCIDX} ${HIPSDIR}"
+RUST_LOG=${LOG} fitstable mkhips "${OPTS[@]}" ${HCIDX} ${HIPSDIR}
 [[ $? != 0 ]] && { echo "ERROR: exit status not 0"; exit 1; }
 
 echo "Build standard products from intermediary representation..."
@@ -239,13 +235,16 @@ while read line; do
   div10k=$((icell / 10000))
   dest="${OUTPUT}/Norder${depth}/Dir$((div10k * 10000))"
   [[ ! -d ${dest} ]] && { mkdir -p ${dest}; }
-  RUST_LOG=${LOG} fitstable qhips ${HIPSDIR} tile ${depth} ${icell} > ${dest}/Npix${icell}.tsv
-  [[ $? != 0 ]] && { echo "ERROR: exit status not 0"; exit 1; }
+  RUST_LOG=${LOG} fitstable qhips ${HIPSDIR} tile ${depth} ${icell} > ${dest}/Npix${icell}.tsv &
+  # [[ $? != 0 ]] && { echo "ERROR: exit status not 0"; exit 1; }
+  # Build max 10 tiles at the same time
+  if [[ $(jobs|wc -l) -lt 10 ]]; then continue; fi
+  wait %%
 done < .hipscat_fifo
 rm .hipscat_fifo
+wait
 
 echo "* build 'index.html'..."
-mkdir ${OUTPUT}/Norder2
 RUST_LOG=${LOG} fitstable qhips ${HIPSDIR} info > ${OUTPUT}/index.html
 [[ $? != 0 ]] && { echo "ERROR: exit status not 0"; exit 1; }
 
@@ -258,3 +257,10 @@ if [[ ${CLEAN} == "true" ]]; then
   echo "* Remove sorted FITS file..."
   rm ${SORTED}
 fi
+
+echo ""
+echo "To visualize in Aladin Lite:"
+echo "* run 'python -m http.server 8000' from you current directory"
+echo "* open 'http://localhost:8000/${OUTPUT}/index.html' in your favourite web browser"
+echo ""
+
