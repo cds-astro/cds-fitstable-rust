@@ -1,5 +1,13 @@
 # `fitstable-cli` Change Log
 
+## 0.1.2-beta
+
+Released 2026-03-05
+
+### Fixed
+
+* Fix missing `trim` when parsing a `TDSIP` in the library
+
 ## 0.1.1-beta
 
 Released 2026-03-04
