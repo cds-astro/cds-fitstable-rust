@@ -237,12 +237,17 @@ while read line; do
   depth="${array[0]}"
   icell="${array[1]}"
   div10k=$((icell / 10000))
-  dest="${OUTPUT}/Norder${depth}/Dir$((div1Ok * 10000))"
+  dest="${OUTPUT}/Norder${depth}/Dir$((div10k * 10000))"
   [[ ! -d ${dest} ]] && { mkdir -p ${dest}; }
   RUST_LOG=${LOG} fitstable qhips ${HIPSDIR} tile ${depth} ${icell} > ${dest}/Npix${icell}.tsv
   [[ $? != 0 ]] && { echo "ERROR: exit status not 0"; exit 1; }
 done < .hipscat_fifo
 rm .hipscat_fifo
+
+echo "* build 'index.html'..."
+mkdir ${OUTPUT}/Norder2
+RUST_LOG=${LOG} fitstable qhips ${HIPSDIR} info > ${OUTPUT}/index.html
+[[ $? != 0 ]] && { echo "ERROR: exit status not 0"; exit 1; }
 
 if [[ ${CLEAN} == "true" ]]; then
   echo "Remove temporary files..."
