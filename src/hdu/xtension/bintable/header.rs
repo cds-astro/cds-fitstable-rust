@@ -1,4 +1,4 @@
-use log::warn;
+use log::{error, warn};
 
 #[cfg(feature = "vot")]
 use crate::common::keywords::tables::bintable::{
@@ -1314,10 +1314,12 @@ impl Header for BinTableHeaderWithColInfo {
         }
         [b'T', b'D', b'I', b'S', b'P', nbr @ ..] => {
           if let Some(n) = get_n(nbr) {
-            self
+            let _ = self
               .check_n(n)
               .and_then(|()| TDispn::from_value_comment(n, kw_value_comment))
               .map(|kwo| self.cols[(n - 1) as usize].tdisp.replace(kwo))?;
+            // To be less strirct, we may only emit a warning and ignore the TDISP:
+            // .map_err(|e| warn!("TDISPn value ignored: {}", e));
           }
         }
         [b'T', b'U', b'C', b'D', nbr @ ..] => {

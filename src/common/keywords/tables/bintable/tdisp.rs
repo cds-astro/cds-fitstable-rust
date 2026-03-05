@@ -45,18 +45,18 @@ pub enum TDispValue {
 impl TDispValue {
   pub fn get_width_and_prec(&self) -> (u16, Option<u16>) {
     match self {
-      Self::A { w } |
-      Self::L { w } |
-      Self::I { w, m: _ } |
-      Self::B { w, m: _ } |
-      Self::O { w, m: _ } |
-      Self::Z { w, m: _ } => (*w, None),
-      Self::F { w, d } |
-      Self::E { w, d, e: _ } |
-      Self::EN { w, d } |
-      Self::ES { w, d } |
-      Self::G { w, d, e: _ } |
-      Self::D { w, d, e: _ } => (*w, Some(*d))
+      Self::A { w }
+      | Self::L { w }
+      | Self::I { w, m: _ }
+      | Self::B { w, m: _ }
+      | Self::O { w, m: _ }
+      | Self::Z { w, m: _ } => (*w, None),
+      Self::F { w, d }
+      | Self::E { w, d, e: _ }
+      | Self::EN { w, d }
+      | Self::ES { w, d }
+      | Self::G { w, d, e: _ }
+      | Self::D { w, d, e: _ } => (*w, Some(*d)),
     }
   }
 }
@@ -65,6 +65,7 @@ impl FromStr for TDispValue {
 
   fn from_str(s: &str) -> Result<Self, Self::Err> {
     let (letter, tail) = s.split_at(1);
+    let tail = tail.trim();
     match letter {
       "A" => parse_w(tail).map(|w| TDispValue::A { w }),
       "L" => parse_w(tail).map(|w| TDispValue::L { w }),
