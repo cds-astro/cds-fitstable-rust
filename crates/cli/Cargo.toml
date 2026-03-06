@@ -1,6 +1,6 @@
 [package]
 name = "fitstable-cli"
-version = "0.1.2-beta"
+version = "0.1.3-beta"
 edition = "2024"
 authors = ["F.-X. Pineau <francois-xavier.pineau@astro.unistra.fr>"]
 description = "Command-line tool for fitstable, including hipsgen-cat features"

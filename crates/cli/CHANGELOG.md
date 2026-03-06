@@ -1,5 +1,15 @@
 # `fitstable-cli` Change Log
 
+## 0.1.3-beta
+
+Released 2026-03-05
+
+### Changed
+
+* Pin version of Aladin Lite use in HIPSCat landing page
+* Support UCD FITS keywords à la VizieR
+
+
 ## 0.1.2-beta
 
 Released 2026-03-05
