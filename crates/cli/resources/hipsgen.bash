@@ -167,6 +167,12 @@ echo "* Output directory : ${OUTPUT}"
 echo "Check input '.fits' extension..."
 [[ ${INPUT} != *.fits ]] && { echo "ERROR: input file extension is not '.fits'"; exit 1; }
 
+echo "Chosen columns info:"
+echo -n "* RA: "
+${CMD} info ${INPUT} | egrep "^ *$((RA-1)) "
+echo -n "* DE: "
+${CMD} info ${INPUT} | egrep "^ *$((DEC-1)) "
+
 echo "Create output dir if necessary..."
 echo "> mkdir -p ${OUTPUT}"
 mkdir -p ${OUTPUT}
@@ -198,7 +204,7 @@ RUST_LOG=${LOG} fitstable mkhips "${OPTS[@]}" ${HCIDX} ${HIPSDIR}
 
 echo "Build standard products from intermediary representation..."
 echo "* check for previous results..."
-if [[ $(ls ${OUTPUT}/Norder*) != "" ]]; then
+if [[ $(ls ${OUTPUT}/Norder* 2>/dev/null) != "" ]]; then
   yesno_exit "NorderXX directories found in ${OUTPUT}, remove all ${OUTPUT}/NorderXX directories (WARNING)?";
   rm -r ${OUTPUT}/Norder*
 fi
@@ -206,9 +212,12 @@ echo "* build 'properties' file..."
 RUST_LOG=${LOG} fitstable qhips ${HIPSDIR} properties > ${OUTPUT}/properties
 [[ $? != 0 ]] && { echo "ERROR: exit status not 0"; exit 1; }
 
-echo "* build 'Metadata.xml' file..."
-RUST_LOG=${LOG} fitstable qhips ${HIPSDIR} metadata   > ${OUTPUT}/Metadata.xml
+echo "* build 'metadata.xml' file..."
+RUST_LOG=${LOG} fitstable qhips ${HIPSDIR} metadata   > ${OUTPUT}/metadata.xml
 [[ $? != 0 ]] && { echo "ERROR: exit status not 0"; exit 1; }
+echo "  + create a link Metadata.xml -> metadata.xml due to historical error in implementations"
+[[ -s ${OUTPUT}/Metadata.xml ]] && { rm ${OUTPUT}/Metadata.xml; }
+ln -s ${OUTPUT}/metadata.xml ${OUTPUT}/Metadata.xml
 
 echo "* build 'Moc.fits' file..."
 RUST_LOG=${LOG} fitstable qhips ${HIPSDIR} moc        > ${OUTPUT}/Moc.fits
