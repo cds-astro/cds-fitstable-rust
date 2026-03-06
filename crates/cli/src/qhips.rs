@@ -84,7 +84,7 @@ pub enum Action {
   Moc,
   #[serde(rename = "allsky")]
   #[clap(name = "allsky")]
-  /// Get the `Norder${depth}/allsky.tsv` file
+  /// Get the `Norder${depth}/Allsky.tsv` file
   Allsky { depth: u8 },
   #[serde(rename = "tile")]
   #[clap(name = "tile")]
@@ -546,7 +546,7 @@ fn print_landing_page(is_cgi: bool) -> Result<(), Box<dyn Error>> {
       } else {
         root = root + '/'
       }
-      buildLandingPage({url: root});
+      buildLandingPage({url: root, alScriptURL: 'https://aladin.cds.unistra.fr/AladinLite/api/v3/3.6.5/aladin.js'});
     </script>
 </html>
     "#;
