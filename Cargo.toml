@@ -16,9 +16,10 @@ members = [
 [workspace.dependencies]
 log = "0.4"
 memmap2 = "0.9"
-votable = { version = "0.7", features = ["mivot"] }
-# cdshealpix = "0.9.1"
-cdshealpix = { git = "https://github.com/cds-astro/cds-healpix-rust", rev = "81270f5" }
+# votable = { version = "0.7", features = ["mivot"] }
+votable = { git = "https://github.com/cds-astro/cds-votable-rust", rev = "09a2345", features = ["mivot"] }
+cdshealpix = "0.9.1"
+# cdshealpix = { git = "https://github.com/cds-astro/cds-healpix-rust", rev = "81270f5" }
 skyregion = { git = "https://github.com/cds-astro/cds-skyregion-rust", rev = "8f2ee4e", features = ["rayon"] }
 expreval = { git = "https://github.com/cds-astro/cds-expreval-rust", rev = "a666d76" }
 
