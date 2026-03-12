@@ -4,13 +4,15 @@ use std::{
   num::{ParseFloatError, ParseIntError},
 };
 
+use log::warn;
+
 use crate::error::{
-  new_empty_hierarch_kw_err, new_empty_val_bool_err, new_empty_val_float_err,
+  Error, new_empty_hierarch_kw_err, new_empty_val_bool_err, new_empty_val_float_err,
   new_empty_val_int_err, new_hierarch_kwval_sep_not_found_err, new_invalid_fixed_fmt_bool_val_err,
   new_invalid_fixed_fmt_float_val_err, new_invalid_fixed_fmt_int_val_err,
   new_invalid_free_fmt_bool_val_err, new_invalid_free_fmt_float_val_err,
   new_invalid_free_fmt_int_val_err, new_string_value_closing_not_found_err,
-  new_string_value_opening_not_found_err, Error,
+  new_string_value_opening_not_found_err,
 };
 
 use super::{VALUE_INDICATOR /* KW_RANGE, VC_RANGE, VI_RANGE*/};
@@ -287,15 +289,31 @@ impl KwrFormatRead for FixedFormatRead {
       if let [b'\'', tail @ ..] = sub {
         match tail.iter().position(|&b| b == b'\'') {
           Some(i) => {
-            if tail.get(i + 1).map(|b| *b == b'\'').unwrap_or(false) {
-              res += Cow::from(bytes2str(&tail[..=i])); // includes the first single quote
-              sub = &tail[i + 1..]; // includes the second single quote
+            // Count the number of successive single quotes
+            let n_single_quote = 1 + (&tail[i + 1..]).iter().take_while(|c| **c == b'\'').count();
+            if n_single_quote & 1 == 1 {
+              // Odd number of single quotes, we detect the closing '
+              let n_single_quote_to_keep = (n_single_quote - 1) >> 1;
+              res += Cow::from(bytes2str(&tail[..i + n_single_quote_to_keep]).trim_end()); // excludes the last quote
+              return Ok((res, &tail[i + n_single_quote..]));
             } else {
-              res += Cow::from(bytes2str(&tail[..i]).trim_end()); // excludes the single quote
-              return Ok((res, &tail[i + 1..]));
+              // Even number of ', the string continues
+              let n_single_quote_to_keep = n_single_quote >> 1;
+              res += Cow::from(bytes2str(&tail[..i + n_single_quote_to_keep])); // includes n_single_quote/2 single quotes
+              sub = &tail[i + n_single_quote - 1..]; // includes the last single quote
             }
           }
-          None => return Err(new_string_value_closing_not_found_err(part_of_kw_record)),
+          None => {
+            return if tail.len() == 0 {
+              warn!(
+                "Closing single quote not found in : {}",
+                String::from_utf8_lossy(part_of_kw_record)
+              );
+              Ok((res, tail))
+            } else {
+              Err(new_string_value_closing_not_found_err(part_of_kw_record))
+            };
+          }
         }
       } else {
         // Can be raised only at the first loop iteration
