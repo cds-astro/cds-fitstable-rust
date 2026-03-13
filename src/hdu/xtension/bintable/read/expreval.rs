@@ -64,7 +64,7 @@ impl<'a, 'b> Table for TableSchema<'a, 'b> {
 
   fn datatype(&self, col_index: u16) -> Result<FieldType, String> {
     match self.schema[col_index as usize].schema {
-      Schema::Empty => Ok(FieldType::Null),
+      Schema::Empty(..) => Ok(FieldType::Null),
       Schema::NullableBoolean => Ok(FieldType::Opt(Box::new(FieldType::Bool))),
       Schema::Byte => Ok(FieldType::I8),
       Schema::Short => Ok(FieldType::I16),

@@ -5,6 +5,7 @@ use crate::common::keywords::tables::bintable::{
   tdisp::TDispValue,
   tform::{RepeatCountAndExtraChar, VariableLenghtArrayInfo},
 };
+use crate::hdu::xtension::bintable::schema::EmptySchema;
 use crate::{
   common::{
     DynValueKwr, ValueKwr,
@@ -152,9 +153,31 @@ impl BinTableColumnHeader {
       .map(String::from)
       .unwrap_or_else(|| format!("col_{}", i_col));
     let mut vot_field = match schema {
-      Schema::Empty => Err(new_custom(
-        "Empty FITS field, transform into VOTable PARAM?",
-      )),
+      Schema::Empty(sc) => match sc {
+        EmptySchema::Bool => Ok::<_, Error>(VOTField::new(name, VOTDatatype::Logical)),
+        EmptySchema::Bit => Ok(
+          VOTField::new(name, VOTDatatype::Bit).set_arraysize(ArraySize::Fixed1D { size: 0_u32 }),
+        ),
+        EmptySchema::Byte => Ok(VOTField::new(name, VOTDatatype::Byte).set_xtype("signed")),
+        EmptySchema::Short => Ok(VOTField::new(name, VOTDatatype::ShortInt)),
+        EmptySchema::Int => Ok(VOTField::new(name, VOTDatatype::Int)),
+        EmptySchema::Long => Ok(VOTField::new(name, VOTDatatype::LongInt)),
+        EmptySchema::UnsignedByte => Ok(VOTField::new(name, VOTDatatype::Byte)),
+        EmptySchema::UnsignedShort => {
+          Ok(VOTField::new(name, VOTDatatype::ShortInt).set_xtype("unsigned"))
+        }
+        EmptySchema::UnsignedInt => Ok(VOTField::new(name, VOTDatatype::Int).set_xtype("unsigned")),
+        EmptySchema::UnsignedLong => {
+          Ok(VOTField::new(name, VOTDatatype::LongInt).set_xtype("unsigned"))
+        }
+        EmptySchema::AsciiChar => Ok(VOTField::new(name, VOTDatatype::CharASCII)),
+        EmptySchema::Float => Ok(VOTField::new(name, VOTDatatype::Float)),
+        EmptySchema::Double => Ok(VOTField::new(name, VOTDatatype::Double)),
+        EmptySchema::ComplexFloat => Ok(VOTField::new(name, VOTDatatype::ComplexFloat)),
+        EmptySchema::ComplexDouble => Ok(VOTField::new(name, VOTDatatype::ComplexDouble)),
+        EmptySchema::ArrayDesc32 => todo!(),
+        EmptySchema::ArrayDesc64 => todo!(),
+      },
       Schema::NullableBoolean => Ok(VOTField::new(name, VOTDatatype::Logical)),
       Schema::Bits { n_bits } => Ok(VOTField::new(name, VOTDatatype::Bit).set_arraysize(
         ArraySize::Fixed1D {
@@ -621,7 +644,7 @@ impl BinTableColumnHeader {
           warn!("TSCAL/TZERO ignored: not supposed to be used with TFORM 'L'.")
         }
         match rc.repeat_count() {
-          0 => Schema::Empty,
+          0 => Schema::Empty(EmptySchema::Bool),
           1 => Schema::NullableBoolean,
           len => Schema::NullableBooleanArray(ArrayParam::new(len as usize)),
         }
@@ -633,7 +656,7 @@ impl BinTableColumnHeader {
           warn!("TSCAL/TZERO ignored: not supposed to be used with TFORM 'X'.")
         }
         match rc.repeat_count() {
-          0 => Schema::Empty,
+          0 => Schema::Empty(EmptySchema::Bit),
           len => Schema::Bits {
             n_bits: len as usize,
           },
@@ -643,7 +666,7 @@ impl BinTableColumnHeader {
       // Unsigned Byte (u8)
       // -- normal case
       TFormValue::B(rc) if scale == 1.0 || offset.is_0() => match rc.repeat_count() {
-        0 => Schema::Empty,
+        0 => Schema::Empty(EmptySchema::UnsignedByte),
         1 => match &self.tnull {
           None => Schema::UnsignedByte,
           Some(null) => Schema::NullableUnsignedByte {
@@ -663,7 +686,7 @@ impl BinTableColumnHeader {
       },
       // -- signed case
       TFormValue::B(rc) if scale == 1.0 && offset.is_i8_offset() => match rc.repeat_count() {
-        0 => Schema::Empty,
+        0 => Schema::Empty(EmptySchema::Byte),
         1 => match &self.tnull {
           None => Schema::Byte,
           Some(null) => Schema::NullableByte {
@@ -688,7 +711,7 @@ impl BinTableColumnHeader {
           todo!("TNULL not yet supported in FloatFromByte / FloatArrayFromBytes");
         }
         match rc.repeat_count() {
-          0 => Schema::Empty,
+          0 => Schema::Empty(EmptySchema::Float),
           1 => Schema::FloatFromByte(transform),
           len => Schema::FloatArrayFromBytes(
             ArrayParam::new(len as usize).with_scale_offset_32(transform),
@@ -699,7 +722,7 @@ impl BinTableColumnHeader {
       // Short integer (i16)
       // -- normal case
       TFormValue::I(rc) if scale == 1.0 || offset.is_0() => match rc.repeat_count() {
-        0 => Schema::Empty,
+        0 => Schema::Empty(EmptySchema::Short),
         1 => match &self.tnull {
           None => Schema::Short,
           Some(null) => Schema::NullableShort {
@@ -719,7 +742,7 @@ impl BinTableColumnHeader {
       },
       // -- unsigned case
       TFormValue::I(rc) if scale == 1.0 && offset.is_u16_offset() => match rc.repeat_count() {
-        0 => Schema::Empty,
+        0 => Schema::Empty(EmptySchema::UnsignedShort),
         1 => match &self.tnull {
           None => Schema::UnsignedShort,
           Some(null) => Schema::NullableUnsignedShort {
@@ -744,7 +767,7 @@ impl BinTableColumnHeader {
           todo!("TNULL not yet supported in FloatFromShort / FloatArrayFromShort");
         }
         match rc.repeat_count() {
-          0 => Schema::Empty,
+          0 => Schema::Empty(EmptySchema::Float),
           1 => Schema::FloatFromShort(transform),
           len => Schema::FloatArrayFromShort(
             ArrayParam::new(len as usize).with_scale_offset_32(transform),
@@ -754,7 +777,7 @@ impl BinTableColumnHeader {
       // Integer (i32)
       // -- normal case
       TFormValue::J(rc) if scale == 1.0 || offset.is_0() => match rc.repeat_count() {
-        0 => Schema::Empty,
+        0 => Schema::Empty(EmptySchema::Int),
         1 => match &self.tnull {
           None => Schema::Int,
           Some(null) => Schema::NullableInt {
@@ -774,7 +797,7 @@ impl BinTableColumnHeader {
       },
       // -- unsigned case
       TFormValue::J(rc) if scale == 1.0 && offset.is_u32_offset() => match rc.repeat_count() {
-        0 => Schema::Empty,
+        0 => Schema::Empty(EmptySchema::UnsignedInt),
         1 => match &self.tnull {
           None => Schema::UnsignedInt,
           Some(null) => Schema::NullableUnsignedInt {
@@ -796,7 +819,7 @@ impl BinTableColumnHeader {
       TFormValue::J(rc) => {
         let transform = ScaleOffset64::new(scale, offset.as_f64());
         match rc.repeat_count() {
-          0 => Schema::Empty,
+          0 => Schema::Empty(EmptySchema::Double),
           1 => Schema::DoubleFromInt(transform),
           len => Schema::DoubleArrayFromInt(
             ArrayParam::new(len as usize).with_scale_offset_64(transform),
@@ -805,7 +828,7 @@ impl BinTableColumnHeader {
       }
       // Long integer (i64) -> should be float80 i computations.
       TFormValue::K(rc) if scale == 1.0 || offset.is_0() => match rc.repeat_count() {
-        0 => Schema::Empty,
+        0 => Schema::Empty(EmptySchema::Long),
         1 => match &self.tnull {
           None => Schema::Long,
           Some(null) => Schema::NullableLong {
@@ -825,7 +848,7 @@ impl BinTableColumnHeader {
       },
       // -- unsigned case
       TFormValue::K(rc) if scale == 1.0 && offset.is_u64_offset() => match rc.repeat_count() {
-        0 => Schema::Empty,
+        0 => Schema::Empty(EmptySchema::UnsignedLong),
         1 => match &self.tnull {
           None => Schema::UnsignedLong,
           Some(null) => Schema::NullableUnsignedLong {
@@ -847,7 +870,7 @@ impl BinTableColumnHeader {
       TFormValue::K(rc) => {
         let transform = ScaleOffset64::new(scale, offset.as_f64());
         match rc.repeat_count() {
-          0 => Schema::Empty,
+          0 => Schema::Empty(EmptySchema::Double),
           1 => Schema::DoubleFromLong(transform), // Should be a float with 64 bits mantissa...
           len => Schema::DoubleArrayFromLong(
             ArrayParam::new(len as usize).with_scale_offset_64(transform),
@@ -860,21 +883,21 @@ impl BinTableColumnHeader {
           warn!("TSCAL/TZERO ignored: not supposed to be used with TFORM 'A'.")
         }
         match rc.repeat_count() {
-          0 => Schema::Empty,
+          0 => Schema::Empty(EmptySchema::AsciiChar),
           1 => Schema::AsciiChar,
           len => Schema::AsciiString(ArrayParam::new(len as usize)),
         }
       }
       // Float (f32)
       TFormValue::E(rc) if scale == 1.0 || offset.is_0() => match rc.repeat_count() {
-        0 => Schema::Empty,
+        0 => Schema::Empty(EmptySchema::Float),
         1 => Schema::Float,
         len => Schema::FloatArray(ArrayParam::new(len as usize)),
       },
       TFormValue::E(rc) => {
         let transform = ScaleOffset32::new(scale as f32, offset.as_f32());
         match rc.repeat_count() {
-          0 => Schema::Empty,
+          0 => Schema::Empty(EmptySchema::Float),
           1 => Schema::FloatFromFloat(transform),
           len => Schema::FloatArrayFromFloat(
             ArrayParam::new(len as usize).with_scale_offset_32(transform),
@@ -883,14 +906,14 @@ impl BinTableColumnHeader {
       }
       // Double (f64)
       TFormValue::D(rc) if scale == 1.0 || offset.is_0() => match rc.repeat_count() {
-        0 => Schema::Empty,
+        0 => Schema::Empty(EmptySchema::Double),
         1 => Schema::Double,
         len => Schema::DoubleArray(ArrayParam::new(len as usize)),
       },
       TFormValue::D(rc) => {
         let transform = ScaleOffset64::new(scale, offset.as_f64());
         match rc.repeat_count() {
-          0 => Schema::Empty,
+          0 => Schema::Empty(EmptySchema::Double),
           1 => Schema::DoubleFromDouble(transform),
           len => Schema::DoubleArrayFromDouble(
             ArrayParam::new(len as usize).with_scale_offset_64(transform),
@@ -900,7 +923,7 @@ impl BinTableColumnHeader {
 
       // Complex f32 (f32, f32)
       TFormValue::C(rc) if scale == 1.0 || offset.is_0() => match rc.repeat_count() {
-        0 => Schema::Empty,
+        0 => Schema::Empty(EmptySchema::ComplexFloat),
         1 => Schema::ComplexFloat,
         len => Schema::ComplexFloatArray(ArrayParam::new(len as usize)),
       },
@@ -910,7 +933,7 @@ impl BinTableColumnHeader {
       }
       // Complex f64 (f64, f64)
       TFormValue::M(rc) if scale == 1.0 || offset.is_0() => match rc.repeat_count() {
-        0 => Schema::Empty,
+        0 => Schema::Empty(EmptySchema::ComplexDouble),
         1 => Schema::ComplexDouble,
         len => Schema::ComplexDoubleArray(ArrayParam::new(len as usize)),
       },
@@ -927,7 +950,7 @@ impl BinTableColumnHeader {
           let hap = HeapArrayParam::new(zo.max_len() as usize);
           Schema::HeapArrayPtr32(heap_array_data_type(zo.data_type(), hap, scale, offset))
         } else {
-          Schema::Empty
+          Schema::Empty(EmptySchema::ArrayDesc32)
         }
       }
       // Array descriptor 64-bit (u64)
@@ -939,7 +962,7 @@ impl BinTableColumnHeader {
           let hap = HeapArrayParam::new(zo.max_len() as usize);
           Schema::HeapArrayPtr64(heap_array_data_type(zo.data_type(), hap, scale, offset))
         } else {
-          Schema::Empty
+          Schema::Empty(EmptySchema::ArrayDesc64)
         }
       }
     })

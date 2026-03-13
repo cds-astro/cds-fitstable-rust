@@ -109,7 +109,7 @@ impl<'de, 'a> DeserializeSeed<'de> for FieldSchema {
     let v = visitor;
     let from = self.starting_byte;
     match &self.schema {
-      Schema::Empty => de.deserialize_empty(v),
+      Schema::Empty(..) => de.deserialize_empty(v),
       Schema::NullableBoolean => de.deserialize_opt_bool(from, v),
       Schema::Bits { n_bits } => de.deserialize_bits(from, *n_bits, v),
       Schema::Byte => de.deserialize_byte(from, v),
@@ -603,12 +603,58 @@ impl HeapArrayParamWithScaleOffset64 {
   }
 }
 
+/// Enum made to know the type of an emtpy column.
+/// So far we only use physical type, not logical type (unsigned int, ...)
+#[derive(Debug, Clone, PartialEq)]
+pub enum EmptySchema {
+  Bool,
+  Bit,
+  Byte,
+  Short,
+  Int,
+  Long,
+  UnsignedByte,
+  UnsignedShort,
+  UnsignedInt,
+  UnsignedLong,
+  AsciiChar,
+  Float,
+  Double,
+  ComplexFloat,
+  ComplexDouble,
+  ArrayDesc32,
+  ArrayDesc64,
+}
+impl Display for EmptySchema {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::Bool => write!(f, "void(bool)"),
+      Self::Bit => write!(f, "void(bits)"),
+      Self::Byte => write!(f, "void(i8)"),
+      Self::Short => write!(f, "void(i16)"),
+      Self::Int => write!(f, "void(i32)"),
+      Self::Long => write!(f, "void(i64)"),
+      Self::UnsignedByte => write!(f, "void(u8)"),
+      Self::UnsignedShort => write!(f, "void(u16)"),
+      Self::UnsignedInt => write!(f, "void(u32)"),
+      Self::UnsignedLong => write!(f, "void(u64)"),
+      Self::AsciiChar => write!(f, "void(char)"),
+      Self::Float => write!(f, "void(f32)"),
+      Self::Double => write!(f, "void(f64)"),
+      Self::ComplexFloat => write!(f, "void(C32)"),
+      Self::ComplexDouble => write!(f, "void(C64)"),
+      Self::ArrayDesc32 => write!(f, "void(h32)"),
+      Self::ArrayDesc64 => write!(f, "void(h64)"),
+    }
+  }
+}
+
 /// Represent both the logical and the storage data type information
 /// (and how to convert the storage type to the logical type and conversely).
 #[derive(Debug, Clone, PartialEq)]
 pub enum Schema {
   // When repeat count = 0
-  Empty, // (Box<Schema>), // ??
+  Empty(EmptySchema),
 
   // Bool
   NullableBoolean,
@@ -699,7 +745,7 @@ impl Schema {
   /// * for variable length array, this return the size of the pointer and not the (variable) size in the BINTABLE heap.
   pub fn stored_byte_len(&self) -> usize {
     match self {
-      Self::Empty => 0,
+      Self::Empty(..) => 0,
       Self::NullableBoolean
       | Self::Byte
       | Self::NullableByte { .. }
@@ -808,7 +854,7 @@ impl Schema {
 impl Display for Schema {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     match self {
-      Self::Empty => write!(f, "void"),
+      Self::Empty(sc) => sc.fmt(f),
       Self::NullableBoolean => write!(f, "bool?",),
       Self::Bits { n_bits } => write!(f, "bits[{}]", n_bits),
       Self::Byte => write!(f, "i8"),
