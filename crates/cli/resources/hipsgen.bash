@@ -217,7 +217,7 @@ RUST_LOG=${LOG} fitstable qhips ${HIPSDIR} metadata   > ${OUTPUT}/metadata.xml
 [[ $? != 0 ]] && { echo "ERROR: exit status not 0"; exit 1; }
 echo "  + create a link Metadata.xml -> metadata.xml due to historical error in implementations"
 [[ -s ${OUTPUT}/Metadata.xml ]] && { rm ${OUTPUT}/Metadata.xml; }
-ln -s ${OUTPUT}/metadata.xml ${OUTPUT}/Metadata.xml
+(cd ${OUTPUT} && ln -s metadata.xml Metadata.xml)
 
 echo "* build 'Moc.fits' file..."
 RUST_LOG=${LOG} fitstable qhips ${HIPSDIR} moc        > ${OUTPUT}/Moc.fits
