@@ -216,8 +216,13 @@ echo "* build 'metadata.xml' file..."
 RUST_LOG=${LOG} fitstable qhips ${HIPSDIR} metadata   > ${OUTPUT}/metadata.xml
 [[ $? != 0 ]] && { echo "ERROR: exit status not 0"; exit 1; }
 echo "  + create a link Metadata.xml -> metadata.xml due to historical error in implementations"
-[[ -s ${OUTPUT}/Metadata.xml ]] && { rm ${OUTPUT}/Metadata.xml; }
-(cd ${OUTPUT} && ln -s metadata.xml Metadata.xml)
+if [[ "$(uname)" == "Darwin" ]]; then
+  # Problem on MacOS due to case insensitive file system
+  cp ${OUTPUT}/metadata.xml ${OUTPUT}/Metadata.xml
+else
+  [[ -s ${OUTPUT}/Metadata.xml ]] && { rm ${OUTPUT}/Metadata.xml; }
+  (cd ${OUTPUT} && ln -s metadata.xml Metadata.xml)
+fi
 
 echo "* build 'Moc.fits' file..."
 RUST_LOG=${LOG} fitstable qhips ${HIPSDIR} moc        > ${OUTPUT}/Moc.fits
