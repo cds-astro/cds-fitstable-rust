@@ -4,3 +4,4 @@ pub mod tform;
 pub mod theap;
 #[cfg(feature = "vot")]
 pub mod vot;
+pub mod tlogt;

@@ -225,6 +225,7 @@ impl<'de, 'a> DeserializeSeed<'de> for FieldSchema {
       Schema::ComplexFloatArray(p) => de.deserialize_complex_float_array(p.len, from, v),
       Schema::ComplexDoubleArray(p) => de.deserialize_complex_double_array(p.len, from, v),
       Schema::AsciiString(p) => de.deserialize_ascii_string_fixed_length(p.len, from, v),
+      Schema::UTF8String(p) => de.deserialize_ascii_string_fixed_length(p.len, from, v), // no difference UTF8/ASCII
       Schema::HeapArrayPtr32(has) => match has {
         HeapArraySchema::HeapNullableBooleanArray(_) => {
           de.deserialize_opt_bool_vararray_ptr32(from, v)
@@ -732,6 +733,7 @@ pub enum Schema {
   // TODO: ComplexDoubleArrayFromDouble(ArrayParamWithScaleOffset64),
   // String
   AsciiString(ArrayParam),
+  UTF8String(ArrayParam),
 
   // Variable length ARRAYS //
   HeapArrayPtr32(HeapArraySchema),
@@ -789,6 +791,7 @@ impl Schema {
         p: ArrayParam { len },
       }
       | Self::AsciiString(ArrayParam { len })
+      | Self::UTF8String(ArrayParam { len })
       | Self::FloatArrayFromBytes(ArrayParamWithScaleOffset32 {
         array_params: ArrayParam { len },
         ..
@@ -912,6 +915,7 @@ impl Display for Schema {
       Self::ComplexFloatArray(p) => write!(f, "C32[{}]", p.len),
       Self::ComplexDoubleArray(p) => write!(f, "C64[{}]", p.len),
       Self::AsciiString(p) => write!(f, "s[{}]", p.len),
+      Self::UTF8String(p) => write!(f, "S[{}]", p.len),
       Self::HeapArrayPtr32(hp) => write!(f, "h32({})", hp.to_string()),
       Self::HeapArrayPtr64(hp) => write!(f, "h64({})", hp.to_string()),
     }

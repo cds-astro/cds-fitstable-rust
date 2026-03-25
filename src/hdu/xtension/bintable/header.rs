@@ -17,6 +17,7 @@ use crate::{
         bintable::{
           tdim::TDim,
           tdisp::TDispn,
+          tlogt::{TLogTn, LogicalType},
           tform::{TFormValue, TFormn, VariableLenghtArrayDataType},
           theap::THeap,
         },
@@ -64,6 +65,8 @@ pub struct BinTableColumnHeader {
   ttype: Option<TType>,
   /// Data type (the only one to be mandatory)
   tform: Option<TFormn>,
+  /// Logical type, if any
+  tlogt: Option<TLogTn>,
   /// Display info
   tdisp: Option<TDispn>,
   /// Unit
@@ -110,7 +113,7 @@ impl BinTableColumnHeader {
   pub fn disp(&self) -> Option<&TDispValue> {
     self.tdisp.as_ref().map(|tdisp| tdisp.data_type())
   }
-
+  pub fn logical_type(&self) -> Option<&LogicalType> { self.tlogt.as_ref().map(|tlogt| tlogt.logical_type()) }
   // format (tdips)
 
   /// Returns the VOTable arraysize of this field, given the data type length and TDISP
@@ -345,6 +348,9 @@ impl BinTableColumnHeader {
           .set_arraysize(self.to_arraysize(ap.get_len())),
       ),
       Schema::AsciiString(ap) => Ok(
+        VOTField::new(name, VOTDatatype::CharASCII).set_arraysize(self.to_arraysize(ap.get_len())),
+      ),
+      Schema::UTF8String(ap) => Ok(
         VOTField::new(name, VOTDatatype::CharASCII).set_arraysize(self.to_arraysize(ap.get_len())),
       ),
       Schema::HeapArrayPtr32(_has) => todo!(),
@@ -676,7 +682,10 @@ impl BinTableColumnHeader {
         len => {
           let p = ArrayParam::new(len as usize);
           match &self.tnull {
-            None => Schema::UnsignedByteArray(p),
+            None => match self.logical_type() {
+              None => Schema::UnsignedByteArray(p),
+              Some(LogicalType::UTF8) => Schema::UTF8String(p),
+            }
             Some(null) => Schema::NullableUnsignedByteArray {
               null: null.col_null_value() as u8,
               p,
@@ -1333,6 +1342,14 @@ impl Header for BinTableHeaderWithColInfo {
               .check_n(n)
               .and_then(|()| TFormn::from_value_comment(n, kw_value_comment))
               .map(|kwo| self.cols[(n - 1) as usize].tform.replace(kwo))?;
+          }
+        }
+        [b'T', b'L', b'O', b'G', b'T', nbr @ ..] => {
+          if let Some(n) = get_n(nbr) {
+            self
+                .check_n(n)
+                .and_then(|()| TLogTn::from_value_comment(n, kw_value_comment))
+                .map(|kwo| self.cols[(n - 1) as usize].tlogt.replace(kwo))?;
           }
         }
         [b'T', b'D', b'I', b'S', b'P', nbr @ ..] => {
