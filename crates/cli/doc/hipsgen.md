@@ -437,7 +437,116 @@ TBW
 
 ## Benchmark
 
-TBW
+### Bench 1: 70 M rows, 30 GB
+
+We use the already HEALPix sorted file `vmc_dr6.fits` (30 GB, 70 462 061 rows, 96 columns)
+that we re-indexed at a read rate of ~850 MB/s on an array of HDD disks:
+
+```bash
+time fitstable mkidx --lon 5 --lat 6 vmc_dr6.fits vmc_dr6.hcidx.fits 
+
+real	0m35,372s
+user	0m4,707s
+sys	0m19,907s
+```
+
+Building the intermediary result (the one stored on the server), on the same HDD array takes ~3min,
+i.e. a write rate (including reading and all operations) of 160 MB/s, in this particular case.
+
+```bash
+time fitstable mkhips --score 'cavg(KSAPERMAG6,JAPERMAG6,YAPERMAG6)' vmc_dr6.hcidx.fits vmc_dr6_hips
+
+real	2m57,704s
+user	1m56,376s
+sys	0m34,577s
+```
+
+In conlusion, the slowest part is (by far) the initial sort of the FITS file.
+But, at CDS, this first step is already done to allow efficient positional
+queries on the file and to allow for HATS on-the-fly.
+It appears that there is not need for multi-threading when building the HiPS,
+only when sorting the original FITS file.
+
+### Bench 2: 1 B rows, 517 GB
+
+For this bench, we use the ESO VPHAS+ DR3.2 data consisting in 1158 FITS files ranging from 45 MB to 2.6 GB.
+In total, the files contain 118 columns and 1,053,401,775 rows.
+We access the files through the local networkd (200 MB/s) and then work on a local HDD array.
+The concatenation + sorting process requires to read and write the full dataset 3 times:
+
+* read all file and write the (unsorted) concatenated result;
+* read the unsorted dataset and write it in smaller (1GB large), sorted, temporary files;
+* read temporary files to write the final sorted FITS file.
+
+Here the figures:
+
+* downloading, concatenating and sorting the files: 2h30min (read and write 517 GB 3 times);
+* creating the HEALPix index: 8min45s (read rate of 1 GB/s);
+* creating intermediary HiPS files (517 GB): 1h03m (<=> write rate of 146 MB/s)
+
+```bash
+> time fitstable sort /data-iscsi-asd/org/eso/vphasplus/dr32/orgdata vphasplus_dr32.fits --lon 3 --lat 4 --depth 10 --chunk-size 1073741824
+
+real    149m47,902s
+user    104m47,979s
+sys     40m27,359s
+
+> fitstable struct vphasplus_dr32.fits 
+HDU[0]:
+ * HEAD starting byte: 0; n_blocks: 3; byte size: 8640
+ * DATA starting byte: 8640; byte size: 0.
+ * TYPE: PRIMARY
+   + simple: true; naxis: 0; bitpix : 8; dimensions: 0.
+HDU[1]:
+ * HEAD starting byte: 8640; n_blocks: 19; byte size: 54720
+ * DATA starting byte: 63360; byte size: 554089333650.
+ * TYPE: BINTABLE
+   + n_cols: 118; n_rows : 1053401775; row_byte_size: 526; heap_byte_size: 0.
+
+> time fitstable mkidx --lon 3 --lat 4 vphasplus_dr32.fits vphasplus_dr32.hcidx.fits
+
+real    8m46,911s
+user    1m26,137s
+sys     5m24,639s
+
+> time fitstable mkhips --score 'cavg(GAPERMAG3,RAPERMAG6,IAPERMAG6)' vphasplus_dr32.fits vphasplus_dr32_hips
+
+real    63m6,344s
+user    41m58,089s
+sys     14m57,173s
+
+> ls -lrh vphasplus_dr32_hips
+total 517G
+-rw-rw-r-- 1 fxpineau fxpineau  52M mars  30 15:37 tiles.bstree
+-rw-rw-r-- 1 fxpineau fxpineau  604 mars  30 15:37 properties.toml
+-rw-rw-r-- 1 fxpineau fxpineau 133K mars  30 15:37 moc.fits
+-rw-rw-r-- 1 fxpineau fxpineau 1,1M mars  30 15:37 hips.cat.layer9.hcidx.fits
+-rw-rw-r-- 1 fxpineau fxpineau  22G mars  30 15:37 hips.cat.layer9.fits
+-rw-rw-r-- 1 fxpineau fxpineau 287K mars  30 15:37 hips.cat.layer8.hcidx.fits
+-rw-rw-r-- 1 fxpineau fxpineau 5,5G mars  30 15:37 hips.cat.layer8.fits
+-rw-rw-r-- 1 fxpineau fxpineau  82K mars  30 15:37 hips.cat.layer7.hcidx.fits
+-rw-rw-r-- 1 fxpineau fxpineau 1,4G mars  30 15:37 hips.cat.layer7.fits
+-rw-rw-r-- 1 fxpineau fxpineau  26K mars  30 15:37 hips.cat.layer6.hcidx.fits
+-rw-rw-r-- 1 fxpineau fxpineau 363M mars  30 15:37 hips.cat.layer6.fits
+-rw-rw-r-- 1 fxpineau fxpineau  12K mars  30 15:37 hips.cat.layer5.hcidx.fits
+-rw-rw-r-- 1 fxpineau fxpineau  95M mars  30 15:37 hips.cat.layer5.fits
+-rw-rw-r-- 1 fxpineau fxpineau 5,7K mars  30 15:37 hips.cat.layer4.hcidx.fits
+-rw-rw-r-- 1 fxpineau fxpineau  26M mars  30 15:37 hips.cat.layer4.fits
+-rw-rw-r-- 1 fxpineau fxpineau 5,7K mars  30 15:37 hips.cat.layer3.hcidx.fits
+-rw-rw-r-- 1 fxpineau fxpineau 7,4M mars  30 15:37 hips.cat.layer3.fits
+-rw-rw-r-- 1 fxpineau fxpineau 5,7K mars  30 15:37 hips.cat.layer2.hcidx.fits
+-rw-rw-r-- 1 fxpineau fxpineau 664K mars  30 15:37 hips.cat.layer2.fits
+-rw-rw-r-- 1 fxpineau fxpineau 5,7K mars  30 15:37 hips.cat.layer1.hcidx.fits
+-rw-rw-r-- 1 fxpineau fxpineau 265K mars  30 15:37 hips.cat.layer1.fits
+-rw-rw-r-- 1 fxpineau fxpineau 3,1M mars  30 15:37 hips.cat.layer13.hcidx.fits
+-rw-rw-r-- 1 fxpineau fxpineau  14G mars  30 15:37 hips.cat.layer13.fits
+-rw-rw-r-- 1 fxpineau fxpineau  17M mars  30 15:37 hips.cat.layer12.hcidx.fits
+-rw-rw-r-- 1 fxpineau fxpineau 180G mars  30 15:37 hips.cat.layer12.fits
+-rw-rw-r-- 1 fxpineau fxpineau  14M mars  30 15:37 hips.cat.layer11.hcidx.fits
+-rw-rw-r-- 1 fxpineau fxpineau 208G mars  30 15:37 hips.cat.layer11.fits
+-rw-rw-r-- 1 fxpineau fxpineau 4,2M mars  30 15:37 hips.cat.layer10.hcidx.fits
+-rw-rw-r-- 1 fxpineau fxpineau  87G mars  30 15:37 hips.cat.layer10.fits
+```
 
 ## Remarks
 
