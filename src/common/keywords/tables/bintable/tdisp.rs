@@ -5,11 +5,11 @@ use std::{
 
 use crate::{
   common::{
-    DynValueKwr, FreeFormat,
     read::KwrFormatRead,
     write::{FreeFormatWrite, KwrFormatWrite},
+    DynValueKwr, FreeFormat,
   },
-  error::{Error, new_parse_u16_err, new_unexpected_value},
+  error::{new_parse_u16_err, new_unexpected_value, Error},
 };
 
 /// Remainder: display '*****' (`w` times) if width of string representation is larger than `w`.
@@ -111,7 +111,8 @@ fn parse_wd(s: &str) -> Result<(u16, u16), Error> {
       .parse::<u16>()
       .and_then(|w| d.parse::<u16>().map(|d| (w, d)))
       .map_err(new_parse_u16_err),
-    None => Err(new_unexpected_value("w.d", s)),
+    // Err(new_unexpected_value("w.d", s)),
+    None => s.parse::<u16>().map(|w| (w, 0)).map_err(new_parse_u16_err),
   }
 }
 fn parse_wde(s: &str) -> Result<(u16, u16, Option<u16>), Error> {
