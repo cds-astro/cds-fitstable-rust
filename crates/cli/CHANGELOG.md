@@ -1,5 +1,15 @@
 # `fitstable-cli` Change Log
 
+## 0.1.4-beta
+
+Released 2026-04-10
+
+### Changed
+
+* Add 'cgi' feature when building pypi wheels
+* Add support for experimental TLOGT FITS keyword
+* Support TDISP looking like 'F3' instead of 'F3.4'
+
 ## 0.1.3-beta
 
 Released 2026-03-05
