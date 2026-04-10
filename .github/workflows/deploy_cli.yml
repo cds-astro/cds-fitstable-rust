@@ -30,7 +30,7 @@ jobs:
          cd crates/cli
          for PYBIN in /opt/python/cp39*/bin; do
            "${PYBIN}/pip" install maturin
-           "${PYBIN}/maturin" publish -i "${PYBIN}/python" --no-sdist --skip-existing --compatibility manylinux_2_28
+           "${PYBIN}/maturin" publish --features cgi -i "${PYBIN}/python" --no-sdist --skip-existing --compatibility manylinux_2_28
          done
 
   # Deploy for Windows 64 bits.
@@ -59,7 +59,7 @@ jobs:
        run: |
          pip install maturin
          cd crates/cli
-         maturin publish --interpreter python${{matrix.python_version}} --no-sdist --skip-existing 
+         maturin publish --features cgi --interpreter python${{matrix.python_version}} --no-sdist --skip-existing
 
   # Deploy for MocOS 64 bits (also support M1 archi).
   build-macos-wheels:
@@ -88,6 +88,6 @@ jobs:
          rustup target add x86_64-apple-darwin
          pip install maturin
          cd crates/cli
-         maturin publish --interpreter python${{matrix.python_version}} --no-sdist --target universal2-apple-darwin --skip-existing
+         maturin publish --features cgi --interpreter python${{matrix.python_version}} --no-sdist --target universal2-apple-darwin --skip-existing
 
 
