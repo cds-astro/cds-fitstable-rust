@@ -14,7 +14,7 @@ use serde_qs as qs;
 use fitstable_cli::qhips::Action;
 use fitstable_cli::{
   csv::Csv, head::Head, info::Info, mkhips::MkHiPS, mkidx::MkIndex, qhips::QHips, qidx::QIndex,
-  sort::Sort, r#struct::Struct,
+  r#struct::Struct, sort::Sort,
 };
 
 // Avoid musl's default allocator due to lackluster performance
@@ -78,6 +78,7 @@ fn exec_cli() -> Result<(), Box<dyn Error>> {
   let args = Args::parse();
   match args.exec() {
     Ok(()) => Ok(()),
+    Err(err) if err.kind() == io::ErrorKind::BrokenPipe => Ok(()),
     Err(e) => {
       eprintln!("Error: {}", e);
       Err(e)
