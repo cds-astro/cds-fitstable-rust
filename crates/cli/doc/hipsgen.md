@@ -123,7 +123,7 @@ cargo install --features cgi --path cracle/cli
 which fitstable
 ```
 
-## Prerequisite: HEALPix sorted and indexed FITS(-plus) file
+## Prerequisite: HEALPix sorted and indexed (HSI) FITS(-plus) file
 
 The table to be transformed must be a single, HEALPix sorted and indexed, BINTABLE FITQ file.
 To benefit from rich metadata, we specifically advice the usage of
@@ -131,7 +131,21 @@ the [FITS-plus](https://www.star.bris.ac.uk/mbt/stilts/sun256/fitsPlus.html) for
 see [TOPCAT](https://www.star.bris.ac.uk/mbt/topcat/sun253/outFits.html)/[STILTS](https://www.star.bris.ac.uk/~mbt/stilts/)
 possible outputs.
 
-To sorted a single -- `mytable.fits` -- regular FITS file:
+### WARNING for Aladin Lite
+
+For Aladin Lite to be able to display sources, positional columns must be tagged with UCDs
+`pos.eq.ra(;meta.main)` and `pos.eq.dec(;meta.main)`.
+Those UCDs are not automatically set by this tool (the tool does not modify FITS headers at all,
+except possibly the number of rows).
+Such UCDs, if absent, should thus be set using a FITS editor **before sorting or indexing** the input
+FITS file. The sorted file **must not be modified** once indexed (except the header, if the number of
+header blocks remains unchanged).
+
+The name of positional columns could potentially be added to the property file.
+
+### Building a HSI FITS-plus
+
+To sorte a single -- `mytable.fits` -- regular FITS file:
 
 ```bash
 # Look at the indices of the coordinate columns you want to use in the HiPS
@@ -471,7 +485,7 @@ only when sorting the original FITS file.
 
 For this bench, we use the ESO VPHAS+ DR3.2 data consisting in 1158 FITS files ranging from 45 MB to 2.6 GB.
 In total, the files contain 118 columns and 1,053,401,775 rows.
-We access the files through the local networkd (200 MB/s) and then work on a local HDD array.
+We access the files through the local networkd (200 MB/s?) and then work on a local HDD array.
 The concatenation + sorting process requires to read and write the full dataset 3 times:
 
 * read all file and write the (unsorted) concatenated result;
@@ -587,6 +601,16 @@ But:
     + one process by query
     + if a process fails or contains a memory leaks, it has no impact on other queries
     + in worst case, a process can be killed, with an impact on a single query
+
+### Performances
+
+The tool has been developed for a single server with a regular linux file system.
+It relies on memory mapped files and single sequential read access.
+This is not optimal when using distributed file system, such as LustreFS, made to 
+access several (part of) file(s) in parallel with buffers of several MB.
+The only multi-threaded part so far is the in-memory sort of the input file row chunks.
+Thus, some developments would be required to achieves better performances with a 
+distributed file system.
 
 ## History
 
