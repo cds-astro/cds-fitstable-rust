@@ -49,7 +49,7 @@ use crate::mkhips::Properties;
 pub struct QHips {
   /// Path of the HiPS directory
   #[clap(value_name = "DIR")]
-  pub input: PathBuf,
+  pub input: String,
   #[clap(subcommand)]
   /// Action to be performed
   pub action: Action,
@@ -62,8 +62,16 @@ impl QHips {
       action,
     }
   }
-  pub fn exec(self, is_cgi: bool) -> Result<(), Box<dyn Error>> {
-    self.action.exec(self.input, is_cgi)
+  pub fn exec(mut self, is_cgi: bool) -> Result<(), Box<dyn Error>> {
+    if is_cgi {
+      // Ugly hack: because '+' is often replaced by a ' ' if not encoded using '%2b'.
+      self.input = self.input.replace("A A", "A+A");
+      // Check tabname
+      if self.input.contains("..") {
+        return Err(format!("Illegal table name: {}", self.input).into());
+      }
+    }
+    self.action.exec(self.input.into(), is_cgi)
   }
 }
 
@@ -130,6 +138,16 @@ fn check_file_exists(path: &PathBuf, is_cgi: bool) -> Result<(), Box<dyn Error>>
   }
 }
 
+/*fn print_echo(mut input: PathBuf, is_cgi: bool) -> Result<(), Box<dyn Error>> {
+  input.push("properties.toml");
+  #[cfg(feature = "cgi")]
+  if is_cgi {
+    println!("Content-Type: text/plain\n");
+  }
+  println!("{:?}", input);
+  Ok(())
+}*/
+
 fn print_properties(mut input: PathBuf, is_cgi: bool) -> Result<(), Box<dyn Error>> {
   input.push("properties.toml");
   check_file_exists(&input, is_cgi)?;
@@ -148,12 +166,13 @@ fn print_properties(mut input: PathBuf, is_cgi: bool) -> Result<(), Box<dyn Erro
         e.into()
       })
     })
-    .map(|prop| {
+    .and_then(|prop| {
       #[cfg(feature = "cgi")]
       if is_cgi {
         println!("Content-Type: text/plain\n");
       }
-      println!("{}", prop)
+      let mut write = stdout().lock();
+      writeln!(&mut write, "{}", prop).map_err(|e| e.into())
     })
 }
 

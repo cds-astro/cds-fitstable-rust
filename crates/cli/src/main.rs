@@ -2,7 +2,7 @@ extern crate fitstable_cli;
 
 #[cfg(feature = "cgi")]
 use std::collections::HashMap;
-use std::error::Error;
+use std::{error::Error, io::Error as IoError, io::ErrorKind};
 
 use clap::Parser;
 #[cfg(feature = "cgi")]
@@ -14,7 +14,7 @@ use serde_qs as qs;
 use fitstable_cli::qhips::Action;
 use fitstable_cli::{
   csv::Csv, head::Head, info::Info, mkhips::MkHiPS, mkidx::MkIndex, qhips::QHips, qidx::QIndex,
-  r#struct::Struct, sort::Sort,
+  sort::Sort, r#struct::Struct,
 };
 
 // Avoid musl's default allocator due to lackluster performance
@@ -78,11 +78,17 @@ fn exec_cli() -> Result<(), Box<dyn Error>> {
   let args = Args::parse();
   match args.exec() {
     Ok(()) => Ok(()),
-    Err(err) if err.kind() == io::ErrorKind::BrokenPipe => Ok(()),
-    Err(e) => {
-      eprintln!("Error: {}", e);
-      Err(e)
-    }
+    Err(e) => match e.downcast::<IoError>() {
+      Ok(err) if err.kind() == ErrorKind::BrokenPipe => Ok(()),
+      Ok(err) => {
+        eprintln!("Error: {}", &err);
+        Err(err.into())
+      }
+      Err(err) => {
+        eprintln!("Error: {}", &err);
+        Err(err.into())
+      }
+    },
   }
 }
 
